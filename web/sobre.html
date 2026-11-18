@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Burgo — Gerador de mapas de cidades e masmorras para RPG (grátis, online)</title>
+  <meta name="description" content="Gerador de cidades para RPG grátis e online: crie mapas isométricos de cidades, vilas, fazendas e masmorras para Tormenta20, D&amp;D 5e e Tales from the Loop. Edite, pinte e exporte em PNG no navegador.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#F3EBDA">
+  <link rel="canonical" href="https://thauanny.github.io/burgo/sobre.html">
+
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Burgo">
+  <meta property="og:title" content="Burgo — Gerador de mapas de cidades e masmorras para RPG">
+  <meta property="og:description" content="Mapas isométricos de cidades, vilas, fazendas e masmorras para Tormenta20, D&amp;D 5e e Tales from the Loop. Grátis, no navegador.">
+  <meta property="og:url" content="https://thauanny.github.io/burgo/sobre.html">
+  <meta property="og:image" content="https://thauanny.github.io/burgo/icons/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://thauanny.github.io/burgo/icons/og-image.png">
+
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "O Burgo é gratuito?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Sim. O Burgo é gratuito, de código aberto e roda direto no navegador, sem cadastro e sem instalar nada." }
+      },
+      {
+        "@type": "Question",
+        "name": "Para quais sistemas de RPG o Burgo gera mapas?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Tormenta20, Dungeons & Dragons 5e, Tales from the Loop e fantasia genérica. Cada sistema tem arquitetura, época, população e monstros próprios, e há cidades oficiais como Valkaria, Vectora, Waterdeep, Baldur's Gate e as ilhas Mälaren." }
+      },
+      {
+        "@type": "Question",
+        "name": "Posso editar o mapa gerado?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Sim. Dá para construir casas e templos, abrir ruas, pintar água, erguer muralhas e cercas, plantar, colocar objetos, personagens e monstros, com desfazer e refazer." }
+      },
+      {
+        "@type": "Question",
+        "name": "Como uso o mapa na minha mesa?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Exporte o mapa como imagem PNG, em vista isométrica ou de cima, e use em mesas virtuais, impressões ou apresentações. O projeto também pode ser salvo em .json para continuar depois." }
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    :root {
+      --paper: #F3EBDA; --card: #FBF6EA; --ink: #2B2A33; --muted: #6E6A62; --line: #D9CDB4;
+      --terracotta: #C8553D; --mustard: #E0A93B; --teal: #2F7F7A; --on-accent: #FFFDF7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --paper: #1E1D23; --card: #28272E; --ink: #EFE8D8; --muted: #B4AC9C; --line: #3D3B44;
+        --terracotta: #E07A60; --mustard: #E8B955; --teal: #5FB3AC; --on-accent: #1E1D23;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font: 17px/1.6 'Avenir Next', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    }
+    a { color: var(--teal); }
+    img { max-width: 100%; height: auto; display: block; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+    header.top { padding: 18px 0; }
+    header.top .wrap { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .brand img { width: 40px; height: 40px; }
+    .brand span { font: italic 800 26px Georgia, 'Palatino Linotype', serif; color: var(--terracotta); }
+    .btn {
+      display: inline-block; text-decoration: none; font-weight: 700; border-radius: 10px;
+      padding: 12px 22px; border: 2px solid var(--ink); background: var(--terracotta); color: var(--on-accent);
+      box-shadow: 3px 3px 0 var(--ink); transition: transform .12s, box-shadow .12s;
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+    .btn.small { padding: 8px 14px; font-size: 15px; }
+    .btn.ghost { background: var(--card); color: var(--ink); }
+    .hero { padding-top: 28px; padding-bottom: 40px; display: grid; gap: 32px; align-items: center; grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .hero { grid-template-columns: 1fr 1.15fr; } }
+    h1 { font: 800 clamp(30px, 5vw, 46px)/1.15 Georgia, 'Palatino Linotype', serif; margin: 0 0 14px; }
+    h1 em { color: var(--terracotta); }
+    .lead { font-size: 19px; color: var(--muted); margin: 0 0 24px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    .shot { border: 2px solid var(--ink); border-radius: 14px; overflow: hidden; background: var(--card); box-shadow: 5px 5px 0 var(--ink); }
+    .gallery .shot { display: flex; flex-direction: column; }
+    .gallery .shot figcaption { flex: 1; }
+    .shot figcaption { font-size: 14px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); }
+    section { padding: 36px 0; border-top: 1px solid var(--line); }
+    h2 { font: 800 clamp(24px, 3.4vw, 32px)/1.2 Georgia, 'Palatino Linotype', serif; margin: 0 0 18px; }
+    h3 { font-size: 19px; margin: 0 0 6px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+    .card p, .card ul { margin: 0; color: var(--muted); }
+    .card p + p { margin-top: 8px; }
+    .card ul { padding-left: 18px; }
+    .gallery { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+    figure { margin: 0; }
+    ol.steps { padding-left: 22px; margin: 0; }
+    ol.steps li { margin-bottom: 8px; }
+    details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+    summary { cursor: pointer; font-weight: 700; }
+    details p { margin: 10px 0 0; color: var(--muted); }
+    .cta { text-align: center; }
+    footer { padding: 28px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="icons/Icon-192.png" alt="" width="40" height="40"><span>Burgo</span></a>
+      <a class="btn small" href="./">Abrir o Burgo</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <div>
+        <h1>Gerador de <em>cidades</em> e <em>masmorras</em> para RPG</h1>
+        <p class="lead">O Burgo cria mapas isométricos de cidades, vilas, fazendas e masmorras prontos para a
+          sua mesa de Tormenta20, D&amp;D 5e ou Tales from the Loop. Gere com um clique, edite tudo e exporte
+          em PNG. Grátis, no navegador, sem cadastro.</p>
+        <div class="actions">
+          <a class="btn" href="./">Criar meu mapa agora</a>
+          <a class="btn ghost" href="#recursos">Ver recursos</a>
+        </div>
+      </div>
+      <figure class="shot">
+        <img src="img/cidade-t20.jpg" width="1400" height="820"
+             alt="Cidade de Tormenta20 gerada pelo Burgo, em vista isométrica, com casas, templo, praça, feira e muralha">
+        <figcaption>Uma cidade de Tormenta20 gerada pelo Burgo</figcaption>
+      </figure>
+    </div>
+
+    <section id="recursos">
+      <div class="wrap">
+        <h2>O que dá para fazer</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Gerar mapas com um clique</h3>
+            <p>Escolha entre cidade com fazendas, só cidade, só fazendas, floresta ou terreno vazio. O mapa já
+              vem com rios, lagos, mar, matas e montanhas que combinam com o lugar.</p>
+            <p>Cada mapa tem um número, a <strong>semente</strong>. Anote ou compartilhe esse número e o
+              mesmo mapa aparece de novo, igualzinho.</p>
+          </div>
+          <div class="card">
+            <h3>Cidades oficiais dos cenários</h3>
+            <p>Valkaria, Vectora, Malpetrim, Smokestone, Waterdeep, Baldur's Gate, Neverwinter, Phandalin,
+              as ilhas Mälaren, Boulder City e outras, recriadas a partir dos mapas publicados.</p>
+          </div>
+          <div class="card">
+            <h3>Cada sistema com a sua cara</h3>
+            <p>Arquitetura, época, templos, população e monstros próprios: pagodes em Nitamu-ra,
+              cogumelos em Pondsmânia, faroeste em Smokestone, anos 80 no Loop.</p>
+          </div>
+          <div class="card">
+            <h3>Editor completo</h3>
+            <p>Construa casas, templos e castelos, abra ruas e estradas de terra, pinte água, erga muralhas,
+              paliçadas e cercas, plante e coloque objetos, com pré-visualização, desfazer e refazer.</p>
+          </div>
+          <div class="card">
+            <h3>Vida no mapa</h3>
+            <p>Personagens de cada classe e raça andando pelas ruas, animais no pasto, monstros acampados
+              fora da cidade e fumaça nas chaminés. Ajuste a população e o raio de movimento.</p>
+          </div>
+          <div class="card">
+            <h3>Masmorras ligadas à cidade</h3>
+            <p>Cada entrada de masmorra abre um piso inferior com cavernas, salas, escuridão, tochas,
+              tesouros e os monstros do cenário.</p>
+          </div>
+          <div class="card">
+            <h3>Pronto para a mesa</h3>
+            <p>Vista isométrica ou de cima, giro do mapa, régua com escala em km, marcadores e exportação
+              em PNG para mesas virtuais ou impressão.</p>
+          </div>
+          <div class="card">
+            <h3>Seus projetos guardados</h3>
+            <p>Salvamento automático no navegador, vários mapas em abas e exportação do projeto em
+              <code>.json</code> para abrir de novo exatamente igual.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="galeria">
+      <div class="wrap">
+        <h2>Mapas feitos no Burgo</h2>
+        <p class="lead">Cada lugar tem a sua arquitetura, o seu clima e o seu povo.</p>
+        <div class="gallery">
+          <figure class="shot">
+            <img src="img/vectora.jpg" width="1200" height="703" loading="lazy"
+                 alt="Vectora, a cidade sobre uma ilha voadora, com muralha redonda e bairros coloridos, em Tormenta20">
+            <figcaption>Vectora, a ilha voadora — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/nitamura.jpg" width="1200" height="703" loading="lazy"
+                 alt="Nitamu-ra com pagodes, casas de telhado curvo, cerejeiras e feira na praça, em Tormenta20">
+            <figcaption>Nitamu-ra, pagodes e cerejeiras — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/pondsmania.jpg" width="1200" height="703" loading="lazy"
+                 alt="Pondsmânia, vila de casas-cogumelo com estações misturadas, flores gigantes e lagos, em Tormenta20">
+            <figcaption>Pondsmânia, o reino das fadas — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/lenorienn.jpg" width="1200" height="703" loading="lazy"
+                 alt="Lenórienn, cidade élfica com árvores-moradas, torres brancas e canais, em Tormenta20">
+            <figcaption>Lenórienn, árvores-moradas élficas — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/smokestone.jpg" width="1200" height="703" loading="lazy"
+                 alt="Smokestone, cidade de faroeste entre rochas vermelhas no deserto, em Tormenta20">
+            <figcaption>Smokestone, faroeste no deserto — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/malpetrim.jpg" width="1200" height="703" loading="lazy"
+                 alt="Malpetrim, cidade portuária com casas de enxaimel, rio, arena e plantações, em Tormenta20">
+            <figcaption>Malpetrim, cidade portuária — Tormenta20</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/bryn-shander.jpg" width="1200" height="703" loading="lazy"
+                 alt="Bryn Shander coberta de neve, com paliçada, lagos congelados e pinheiros, em D&D 5e">
+            <figcaption>Bryn Shander, no Vale do Vento Gélido — D&amp;D 5e</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/malaren.jpg" width="1200" height="703" loading="lazy"
+                 alt="Arquipélago das ilhas Mälaren com torres de resfriamento, fazendas suecas e barcos, em Tales from the Loop">
+            <figcaption>Ilhas Mälaren e o Loop — Tales from the Loop</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/masmorra-t20.jpg" width="1200" height="703" loading="lazy"
+                 alt="Masmorra de Tormenta20 com cavernas, cristais rubros, tochas e monstros">
+            <figcaption>Masmorra com cristais rubros — Tormenta20</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="sistemas">
+      <div class="wrap">
+        <h2>Sistemas e lugares</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Tormenta20</h3>
+            <p>Valkaria, Vectora, Malpetrim, Smokestone, Sambúrdia, Nitamu-ra, Lenórienn, Norba, Pondsmânia,
+              cidade militar, distrito de engenhocas e cidades livres com Área da Tormenta. As 14 classes e
+              17 raças do livro básico.</p>
+          </div>
+          <div class="card">
+            <h3>Dungeons &amp; Dragons 5e</h3>
+            <p>Waterdeep, Baldur's Gate, Neverwinter, Phandalin, Bryn Shander, Alto Bosque, vila de fronteira
+              e cidades livres com magia selvagem. Classes e raças do Livro do Jogador.</p>
+          </div>
+          <div class="card">
+            <h3>Tales from the Loop</h3>
+            <p>Ilhas Mälaren, Boulder City, Mercer, fazendas e a instalação do Loop, com robôs, torres de
+              resfriamento e a paisagem dos anos 80.</p>
+          </div>
+          <div class="card">
+            <h3>Fantasia genérica</h3>
+            <p>Cidades e reinos medievais para qualquer mesa, com castelos murados, feiras, templos e
+              fazendas.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-usar">
+      <div class="wrap">
+        <h2>Como criar o mapa da sua cidade</h2>
+        <ol class="steps">
+          <li>Abra o <a href="./">Burgo</a> no navegador do computador, tablet ou celular.</li>
+          <li>Na aba <strong>Mapa</strong>, escolha o sistema, o lugar e a composição, e clique em
+            <strong>Gerar nova</strong>.</li>
+          <li>Na aba <strong>Editar</strong>, escolha uma ferramenta e clique no mapa. Clique num item para
+            ver e mudar as opções dele.</li>
+          <li>Em <strong>População</strong>, ajuste quantas pessoas e monstros há e quanto eles andam.</li>
+          <li>Em <strong>Arquivo</strong>, salve o projeto ou exporte a imagem em PNG.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="perguntas">
+      <div class="wrap">
+        <h2>Perguntas frequentes</h2>
+        <details>
+          <summary>O Burgo é gratuito?</summary>
+          <p>Sim. É gratuito, de código aberto e roda direto no navegador, sem cadastro e sem instalar nada.</p>
+        </details>
+        <details>
+          <summary>Para quais sistemas de RPG o Burgo gera mapas?</summary>
+          <p>Tormenta20, Dungeons &amp; Dragons 5e, Tales from the Loop e fantasia genérica, cada um com
+            arquitetura, época, população e monstros próprios.</p>
+        </details>
+        <details>
+          <summary>Posso editar o mapa gerado?</summary>
+          <p>Sim. Tudo o que aparece no mapa pode ser colocado, movido ou apagado: construções, ruas, água,
+            muralhas, cercas, plantações, objetos, personagens e monstros.</p>
+        </details>
+        <details>
+          <summary>Como uso o mapa na minha mesa?</summary>
+          <p>Exporte como imagem PNG, em vista isométrica ou de cima, e use em mesas virtuais, impressões
+            ou apresentações. O projeto pode ser salvo em .json para continuar depois.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap">
+        <h2>Pronto para desenhar o seu burgo?</h2>
+        <a class="btn" href="./">Abrir o gerador</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>Burgo é um projeto de fã, gratuito e de código aberto:
+        <a href="https://github.com/Thauanny/burgo">github.com/Thauanny/burgo</a>.
+        Tormenta20 é marca da Jambô Editora; Dungeons &amp; Dragons é marca da Wizards of the Coast;
+        Tales from the Loop é marca da Fria Ligan e de Simon Stålenhag. O Burgo não tem
+        vínculo com essas empresas.</p>
+    </div>
+  </footer>
+</body>
+</html>

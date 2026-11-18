@@ -9,6 +9,7 @@ import 'city_page.dart';
 import 'credits_dialog.dart';
 import 'dungeon_page.dart';
 import 'file_menu.dart';
+import 'open_page.dart';
 import 'retro/vintage.dart';
 import 'strings.dart';
 
@@ -181,7 +182,7 @@ class _TitleBar extends StatelessWidget {
   }
 }
 
-/// Menus em texto: Arquivo, Editar, Exibir, Ajuda.
+/// Menus em texto: Arquivo, Editar, Exibir, Ajuda e Sobre (abre a página do Burgo).
 class _MenuBar extends StatelessWidget {
   const _MenuBar({required this.workspace});
   final Workspace workspace;
@@ -242,6 +243,16 @@ class _MenuBar extends StatelessWidget {
                 PopupMenuItem(value: 'credits', child: Text(Strings.credits))
               ],
               child: const _MenuLabel('Ajuda'),
+            ),
+            Tooltip(
+              message: 'Página do Burgo: recursos, sistemas e perguntas',
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => openPage('sobre.html'),
+                  child: const _MenuLabel('Sobre'),
+                ),
+              ),
             ),
           ]),
         ),

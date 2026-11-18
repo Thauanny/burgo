@@ -1,5 +1,6 @@
 // Gera o ícone (aba, manifesto, README), a imagem de compartilhamento e as capturas do README.
-// As capturas evitam lugares com nomes no mapa: o ambiente de teste não tem fontes.
+// Os nomes do mapa são tirados das capturas: o ambiente de teste não tem fontes.
+// A galeria da página sobre.html usa as capturas de docs/img/galeria/, convertidas para JPEG em web/img/.
 // Uso: flutter test tool/make_assets_test.dart
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -36,6 +37,10 @@ Future<ui.Image> _city(String sys, String? st, {required double zoom, int seed =
   final e = EditorState(generator: const ProceduralCityGenerator(), systems: systems)..setSystem(systems.byId(sys));
   if (st != null) e.setSettlement(e.system.art.settlements.firstWhere((s) => s.id == st));
   e.generate(seed: seed);
+  // sem nomes no mapa (o ambiente de teste não tem fontes)
+  for (final l in e.city.labels.toList()) {
+    e.city.removeLabel(l.id);
+  }
   e.viewport.fit(e.city.size, size, tilesY: e.city.tilesY);
   e.viewport.zoomAround(size.center(ui.Offset.zero), e.viewport.zoom * zoom);
   e.clock.seconds = t;
@@ -100,6 +105,21 @@ void main() {
     });
     expect(_last, isNotNull);
   }, timeout: const Timeout(Duration(minutes: 5)));
+
+  test('galeria da página sobre', () async {
+    for (final (sys, st, zoom, seed, name) in const [
+      ('t20', 'voadora', 1.0, 4, 'vectora'),
+      ('t20', 'oriental', 1.7, 5, 'nitamura'),
+      ('t20', 'feerica', 1.25, 6, 'pondsmania'),
+      ('t20', 'elfica', 1.7, 2, 'lenorienn'),
+      ('t20', 'oeste', 1.6, 4, 'smokestone'),
+      ('t20', 'porto', 1.6, 3, 'malpetrim'),
+      ('dnd5e', 'bryn_shander', 1.5, 2, 'bryn-shander'),
+      ('loop', 'malaren', 1.3, 2, 'malaren'),
+    ]) {
+      await _save(await _city(sys, st, zoom: zoom, seed: seed), 'docs/img/galeria/$name.png');
+    }
+  }, timeout: const Timeout(Duration(minutes: 8)));
 }
 
 class _DungeonShot implements DungeonScene {

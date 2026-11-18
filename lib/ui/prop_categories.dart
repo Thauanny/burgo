@@ -34,6 +34,8 @@ enum PropGroup {
       PropType.tree ||
       PropType.pine ||
       PropType.sakura ||
+      PropType.autumnTree ||
+      PropType.frostTree ||
       PropType.bush ||
       PropType.giantFlower ||
       PropType.cactus ||
@@ -67,6 +69,7 @@ enum PropGroup {
         tech,
       PropType.anomaly ||
       PropType.fairyLight ||
+      PropType.fairyRing ||
       PropType.eclipse ||
       PropType.dungeonEntrance =>
         special,

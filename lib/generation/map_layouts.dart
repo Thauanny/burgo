@@ -45,6 +45,7 @@ extension _MapLayouts on _CityBuild {
       _paintZone(adapt: true);
       _populateZone();
     }
+    _wallCastles();
     _populateLife();
     return city;
   }

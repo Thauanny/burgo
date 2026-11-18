@@ -352,7 +352,7 @@ void main() {
       't20/oriental': {BuildingKind.eastHouse, BuildingKind.pagoda},
       't20/elfica': {BuildingKind.elfHouse, BuildingKind.elfTree, BuildingKind.elfTower},
       't20/engenhoca': {BuildingKind.workshop},
-      't20/feerica': {BuildingKind.mushroom, BuildingKind.cottage, BuildingKind.elfTower},
+      't20/feerica': {BuildingKind.mushroom, BuildingKind.elfTree},
       'loop/malaren': {BuildingKind.faluCabin, BuildingKind.barn, BuildingKind.silo, BuildingKind.modern, BuildingKind.lab, BuildingKind.coolingTower, BuildingKind.warehouse},
       'loop/floresta_malaren': {BuildingKind.faluCabin, BuildingKind.barn, BuildingKind.silo},
       'loop/fazendas_loop': {BuildingKind.faluCabin, BuildingKind.barn, BuildingKind.silo},
@@ -643,10 +643,14 @@ void main() {
       for (final (x, y) in [(0, 0), (c.tilesX - 1, 0), (0, c.tilesY - 1), (c.tilesX - 1, c.tilesY - 1)]) {
         expect(c.water.at(x, y), isTrue, reason: 'canto $x,$y não é céu');
       }
+      // a muralha da cidade; o anel do Castelo Vectorius, fora dela, é outra fortificação
+      final castle = c.buildings.firstWhere((b) => b.kind == BuildingKind.castle);
+      bool nearCastle(int x, int y) =>
+          x >= castle.x - 1 && x <= castle.x + castle.width && y >= castle.y - 1 && y <= castle.y + castle.depth;
       final walls = <(int, int)>[
         for (var x = 0; x < c.tilesX; x++)
           for (var y = 0; y < c.tilesY; y++)
-            if (c.walls.at(x, y)) (x, y)
+            if (c.walls.at(x, y) && !nearCastle(x, y)) (x, y)
       ];
       final xs = walls.map((w) => w.$1), ys = walls.map((w) => w.$2);
       final w = xs.reduce(max) - xs.reduce(min), h = ys.reduce(max) - ys.reduce(min);

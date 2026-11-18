@@ -864,6 +864,7 @@ abstract final class SettlementTypes {
 
   static const t20Elven = SettlementType(
     id: 'elfica',
+    hasPlaza: false,
     // Lenórienn: a cidade élfica (hoje ocupada pela Aliança Negra, segundo a wiki); elfos.
     population: [PropWeight(_P.raceElf, 90), PropWeight(_P.raceHuman, 5), PropWeight(_P.raceDahllan, 3), PropWeight(_P.raceSylph, 2)],
     name: 'Lenórienn (cidade élfica)',
@@ -922,6 +923,7 @@ abstract final class SettlementTypes {
 
   static const t20Goblin = SettlementType(
     id: 'engenhoca',
+    hasPlaza: false,
     // Distrito de engenhocas: goblins e anões inventores, com kliren.
     population: [PropWeight(_P.raceGoblin, 45), PropWeight(_P.raceDwarf, 35), PropWeight(_P.raceKliren, 12), PropWeight(_P.raceHuman, 8)],
     name: 'Distrito de engenhocas (goblins e anões)',
@@ -1030,7 +1032,7 @@ abstract final class SettlementTypes {
     population: [PropWeight(_P.raceSylph, 55), PropWeight(_P.raceDahllan, 25), PropWeight(_P.raceHuman, 12), PropWeight(_P.raceElf, 8)],
     name: 'Pondsmânia (floresta feérica)',
     lore:
-        'Pondsmânia, o reino das fadas: uma floresta mágica onde nada obedece a regra nenhuma (confirmar no T20). Casas de cogumelo de todos os tamanhos e cores, chalés tortos, torres de flor, flores gigantes, luzes de fada flutuando, poças e lagos espalhados e ruas que se perdem. Também pode ter área da Tormenta.',
+        'Pondsmânia, o reino das fadas, na floresta densa de Greenaria: habitado quase só por fadas e criaturas mágicas, onde o tempo e o espaço não funcionam como no resto de Arton. A capital, Linnanthas-Shaed, fica dentro de uma Árvore do Céu gigante, presente de Allihanna à Rainha Thanthalla-Dhaedelin; o povo vive em vilas pequenas ou nas próprias árvores. Aqui: só casas de cogumelo, sem praça nem ruas retas (os caminhos somem), a Árvore do Céu no centro, estações misturadas lado a lado (primavera, verão, outono e inverno), ilhotas de terra flutuando, círculos de fadas, flores gigantes e luzes de fada. Fontes: Wikipédia "Reinado (Tormenta)" e Enciclopédia de Arton; confirmar no Atlas de Arton.',
     wallColors: [
       Color(0xFFF2D9E6),
       Color(0xFFE3D5F0),
@@ -1043,20 +1045,22 @@ abstract final class SettlementTypes {
       Color(0xFFD9703A),
       Color(0xFF4A9A8A)
     ],
+    // só casas de cogumelo; no centro, a Árvore do Céu (Linnanthas-Shaed fica dentro de uma)
     kinds: [
-      KindWeight(_K.mushroom, 7),
-      KindWeight(_K.cottage, 2),
-      KindWeight(_K.elfTower, .8),
+      KindWeight(_K.mushroom, 1),
     ],
     farmHouse: _K.mushroom,
     farmBarn: _K.mushroom,
-    noLandmark: true,
+    landmark: _K.elfTree,
+    hasPlaza: false,
+    landmarkSize: 4,
     names: {
       _K.mushroom: ['Casa de cogumelo', 'Toca de fada', 'Casinha de orvalho'],
       _K.cottage: ['Casa de cogumelo', 'Toca de fada', 'Chalé florido'],
       _K.timber: ['Casa de ervas', 'Salão das fadas'],
       _K.tower: ['Torre de flor', 'Mirante'],
       _K.elfTower: ['Torre de flor', 'Mirante das fadas', 'Torre torta'],
+      _K.elfTree: ['Árvore do Céu'],
     },
     defaultMode: SettlementMode.cityWithFarms,
     terrain: TerrainPalette(

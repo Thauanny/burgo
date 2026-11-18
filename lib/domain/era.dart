@@ -166,6 +166,7 @@ abstract final class EraRules {
     PropType.mZombie: _fantasy,
     PropType.mSpider: _fantasy,
     PropType.mCube: _fantasy,
+    PropType.fairyRing: _fantasy,
     PropType.campfire: {Era.medieval, Era.victorian, Era.western, Era.modern},
     PropType.kid: {Era.modern},
     PropType.adult: {Era.modern},

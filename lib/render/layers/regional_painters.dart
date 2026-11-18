@@ -746,19 +746,21 @@ void _arena(Canvas cv, Building b, double t) {
 /// espiral, lanternas verdes e uma copa enorme por cima.
 void _elfTree(Canvas cv, Building b, double t) {
   final cx = b.x + b.width / 2, cy = b.y + b.depth / 2;
-  final h = Iso.height(b) + 30;
+  // a Árvore do Céu de Pondsmânia ocupa um lote maior: tudo cresce junto com ele
+  final k = min(b.width, b.depth) / 2;
+  final h = (Iso.height(b) + 30) * (k > 1 ? 1.5 : 1);
   const bark = Color(0xFF7A5A3E);
   final base = Iso.pt(cx, cy);
   // raízes
   final root = Paint()
     ..color = shade(bark, -.08)
-    ..strokeWidth = 5
+    ..strokeWidth = 5 * k
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
   for (final a in [.3, 1.4, 2.6, 3.7, 4.9]) {
-    cv.drawLine(base.translate(0, -6), base.translate(cos(a) * 22, sin(a) * 9), root);
+    cv.drawLine(base.translate(0, -6), base.translate(cos(a) * 22 * k, sin(a) * 9 * k), root);
   }
-  cylinder(cv, cx, cy, .32, 0, h, bark);
+  cylinder(cv, cx, cy, .32 * k, 0, h, bark);
   // veios do tronco
   final vein = outline(shade(bark, -.18), 1);
   for (final dx in [-6.0, 0.0, 5.0]) {
@@ -767,9 +769,19 @@ void _elfTree(Canvas cv, Building b, double t) {
   }
   // plataforma com casa de mármore
   final zp = h * .48;
-  cylinder(cv, cx, cy, .95, zp - 4, zp, const Color(0xFFE9E2D0), capShade: .1);
+  if (k > 1) {
+    // capital nos galhos: uma plataforma mais baixa com casinhas de cogumelo e lanternas
+    final zl = h * .26;
+    cylinder(cv, cx, cy, .8 * k, zl - 4, zl, const Color(0xFFE9E2D0), capShade: .1);
+    for (final a in [.6, 2.2, 3.9, 5.3]) {
+      final hx = cx + cos(a) * .55 * k, hy = cy + sin(a) * .55 * k;
+      cylinder(cv, hx, hy, .14, zl, zl + 9, const Color(0xFFF2EAD8));
+      cone(cv, hx, hy, .24, zl + 9, 7, const [Color(0xFFB04A6E), Color(0xFF7B5BB0), Color(0xFFD9703A), Color(0xFF4A9A8A)][(a * 3).round() % 4]);
+    }
+  }
+  cylinder(cv, cx, cy, .95 * k, zp - 4, zp, const Color(0xFFE9E2D0), capShade: .1);
   const marble = Color(0xFFF6F3EA);
-  final hb = Geo.box(b, cx - .55, cy - .55, 1.1, 1.1, zp + 18);
+  final hb = Geo.box(b, cx - .55 * k, cy - .55 * k, 1.1 * k, 1.1 * k, zp + 18);
   shadedFace(cv, hb.leftFace(zp), marble, line: const Color(0xFF9BA59A), lw: 1.2);
   shadedFace(cv, hb.rightFace(zp), shade(marble, -.08),
       line: const Color(0xFF9BA59A), lw: 1.2);
@@ -784,31 +796,32 @@ void _elfTree(Canvas cv, Building b, double t) {
     cv.drawPath(p, Paint()..color = const Color(0xFFB8E6C8));
     cv.drawPath(p, outline(const Color(0xFFC9A94A), 1));
   }
-  cone(cv, cx, cy, .82, zp + 18, 20, b.roofColor);
+  cone(cv, cx, cy, .82 * k, zp + 18, 20 * k, b.roofColor);
   // corrimão dourado e lanternas
-  final ring = Iso.ellipse(.95);
+  final ring = Iso.ellipse(.95 * k);
   cv.drawOval(Rect.fromCenter(center: Iso.pt(cx, cy, zp + 3), width: ring.$1 * 2, height: ring.$2 * 2),
       outline(const Color(0xFFC9A94A), 1.2));
   final glow = .6 + .4 * sin(t * 1.5 + b.id);
   for (final a in [0.4, 2.5, 4.4]) {
-    final p = Iso.pt(cx + cos(a) * .95, cy + sin(a) * .95, zp + 8);
+    final p = Iso.pt(cx + cos(a) * .95 * k, cy + sin(a) * .95 * k, zp + 8);
     cv.drawCircle(p, 4.5, Paint()..color = Color.fromRGBO(190, 255, 190, .25 * glow));
     cv.drawCircle(p, 1.8, Paint()..color = const Color(0xFFD9FFC8));
   }
   // copa
   final crown = Iso.pt(cx, cy, h);
+  final sc = k;
   const leaves = [Color(0xFF3E8F5A), Color(0xFF4FA36A), Color(0xFF66B87C)];
   for (final (dx, dy, r, k) in const [
     (-22.0, 6.0, 20.0, 0), (22.0, 6.0, 20.0, 0), (0.0, 10.0, 22.0, 1),
     (-12.0, -10.0, 20.0, 1), (12.0, -10.0, 20.0, 1), (0.0, -6.0, 24.0, 2),
     (-6.0, -18.0, 14.0, 2),
   ]) {
-    final c = crown.translate(dx, dy);
-    cv.drawCircle(c, r, Paint()..color = leaves[k]);
-    cv.drawCircle(c, r, outline(shade(leaves[k], -.25), 1));
+    final c = crown.translate(dx * sc, dy * sc);
+    cv.drawCircle(c, r * sc, Paint()..color = leaves[k]);
+    cv.drawCircle(c, r * sc, outline(shade(leaves[k], -.25), 1));
   }
   for (var i = 0; i < 6; i++) {
-    cv.drawCircle(crown.translate(sin(i * 2.1) * 20, cos(i * 1.7) * 12 - 4), 1.6,
+    cv.drawCircle(crown.translate(sin(i * 2.1) * 20 * sc, cos(i * 1.7) * 12 * sc - 4), 1.6,
         Paint()..color = const Color(0xFFF4F1C8));
   }
 }

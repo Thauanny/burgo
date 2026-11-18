@@ -37,6 +37,25 @@ void main() {
       }
     });
 
+    test('todo castelo fica dentro de muralha (estrutura de reino)', () {
+      final e = _editor();
+      for (final sys in const BuiltInSystemRepository().all) {
+        e.setSystemById(sys.id);
+        for (final st in e.system.art.settlements) {
+          e.setSettlement(st);
+          for (final c in e.city.buildings.where((b) => b.kind == BuildingKind.castle)) {
+            var walls = 0;
+            for (var x = c.x - 3; x <= c.x + c.width + 2; x++) {
+              for (var y = c.y - 3; y <= c.y + c.depth + 2; y++) {
+                if (e.city.walls.at(x, y)) walls++;
+              }
+            }
+            expect(walls, greaterThanOrEqualTo(c.width + c.depth), reason: '${st.id}: ${c.name} sem muralha');
+          }
+        }
+      }
+    });
+
     test('tudo o que aparece no mapa pode ser colocado (na época do lugar)', () {
       final e = _editor();
       for (final sys in const BuiltInSystemRepository().all) {

@@ -152,6 +152,8 @@ class SettlementType {
     this.radialStreets = 0,
     this.island = false,
     this.centerWater = true,
+    this.hasPlaza = true,
+    this.landmarkSize,
     this.population,
     this.wallStone,
     this.wallRoof,
@@ -262,6 +264,13 @@ class SettlementType {
 
   /// A praça central da cidade oval tem lago (Valkaria) ou é só praça (Vectora).
   final bool centerWater;
+
+  /// Tem praça central (com fonte e feira)? Vilas élficas, de fadas e de goblins não têm:
+  /// no lugar dela fica o marco do lugar (a Árvore do Céu, a árvore-morada, a oficina).
+  final bool hasPlaza;
+
+  /// Lado do lote do marco (a Árvore do Céu de Pondsmânia é bem maior que uma casa).
+  final int? landmarkSize;
 
   /// Cores da muralha (pedra e telhado das torres); sem valor, pedra cinza e telhado vermelho.
   final Color? wallStone, wallRoof;

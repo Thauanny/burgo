@@ -16,6 +16,7 @@ import 'building_renderer.dart';
 import 'farm_renderer.dart';
 import 'market_props.dart' show propHeights;
 import 'prop_renderer.dart';
+import 'sacred_painters.dart' show buildingEra;
 import 'wall_renderer.dart';
 import 'zone_contamination.dart' show isContaminable;
 
@@ -139,6 +140,8 @@ class EntitiesLayer {
   List<_Mover> _movers = const [];
 
   void paint(Canvas cv, SceneView scene, double scale) {
+    // a igreja muda de cara com a época do lugar
+    buildingEra = scene.settlement.era ?? scene.system.art.era;
     final savedRot = Iso.rot;
     try {
       _paint(cv, scene, scale, savedRot);
@@ -527,7 +530,7 @@ class EntitiesLayer {
 
   /// Objetos parados altos o bastante para cobrir um boneco atrás deles.
   static const _tallProps = {
-    PropType.tree, PropType.pine, PropType.sakura, PropType.lamp, PropType.elfLamp, PropType.lantern,
+    PropType.tree, PropType.pine, PropType.sakura, PropType.autumnTree, PropType.frostTree, PropType.lamp, PropType.elfLamp, PropType.lantern,
     PropType.stall, PropType.well, PropType.fountain, PropType.statue, PropType.cart, PropType.torii,
     PropType.crate, PropType.barrel, PropType.hay,
     PropType.toro, PropType.mountain, PropType.mesa, PropType.ruin, PropType.dish, PropType.vending,
@@ -567,7 +570,11 @@ class EntitiesLayer {
 
   static bool _isTallPlant(MapItem? i) =>
       i is Prop &&
-      (i.type == PropType.tree || i.type == PropType.pine || i.type == PropType.sakura);
+      (i.type == PropType.tree ||
+          i.type == PropType.pine ||
+          i.type == PropType.sakura ||
+          i.type == PropType.autumnTree ||
+          i.type == PropType.frostTree);
 
   // ---------------------------------------------------------------- desenho
   void _paintEntry(Canvas cv, _Entry e, SceneView scene) {

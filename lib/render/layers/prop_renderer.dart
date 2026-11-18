@@ -139,6 +139,9 @@ typedef PropDrawer = void Function(PropContext ctx);
 /// Um desenhista por tipo de objeto. Novo objeto = nova entrada aqui.
 final Map<PropType, PropDrawer> _basicDrawers = {
   PropType.tree: drawTree,
+  PropType.autumnTree: drawAutumnTree,
+  PropType.frostTree: drawFrostTree,
+  PropType.fairyRing: drawFairyRing,
   PropType.pine: drawPine,
   PropType.sakura: drawSakura,
   PropType.bush: drawBush,
@@ -216,7 +219,7 @@ Path? canopyOutline(Prop p) {
   final hs = tileHash(p.id, p.id * 7 + 3);
   Path union(List<Path> ps) => ps.reduce((a, b) => Path.combine(PathOperation.union, a, b));
   switch (p.type) {
-    case PropType.tree:
+    case PropType.tree || PropType.autumnTree || PropType.frostTree:
       final cc = o.translate(0, -31);
       return union([_canopy(cc.translate(5, 3), 15, 13, hs + 3, lobes: 6), _canopy(cc, 17, 15, hs)]);
     case PropType.sakura:
@@ -279,6 +282,71 @@ void drawTree(PropContext ctx) {
     for (final (dx, dy) in const [(6.0, -2.0), (-9.0, 4.0), (2.0, 7.0)]) {
       cv.drawCircle(cc.translate(dx, dy), 1.5, ctx.fill(const Color(0xFFD9484A)));
     }
+  }
+}
+
+/// Árvore de outono: copa em laranjas e vermelhos, com folhas caídas em volta.
+void drawAutumnTree(PropContext ctx) {
+  final cv = ctx.cv, o = ctx.o, hs = ctx.hs;
+  const tops = [Color(0xFFE0893A), Color(0xFFD2603A), Color(0xFFE6B13A), Color(0xFFC24A32)];
+  final base = tops[hs % 4];
+  cv.drawOval(Rect.fromCenter(center: o.translate(4, 2), width: 32, height: 15), ctx.shadow);
+  for (var i = 0; i < 6; i++) {
+    final a = i * 1.1 + hs;
+    cv.drawOval(Rect.fromCenter(center: o.translate(cos(a) * 14, sin(a) * 6 + 2), width: 3.4, height: 2),
+        ctx.fill(tops[(hs + i) % 4]));
+  }
+  _trunk(ctx, 18 + hs % 4, 2.4, const Color(0xFF6E4A30));
+  final cc = o.translate(0, -31);
+  cv.drawPath(_canopy(cc.translate(5, 3), 15, 13, hs + 3, lobes: 6), ctx.fill(shade(base, -.18)));
+  final main = _canopy(cc, 17, 15, hs);
+  cv.drawPath(main, ctx.fill(base));
+  cv.drawPath(main, ctx.stroke(shade(base, -.32), .9));
+  cv.drawPath(_canopy(cc.translate(-4, -4), 11, 9.5, hs + 1, lobes: 5), ctx.fill(shade(tops[(hs + 2) % 4], .08)));
+  cv.drawPath(_canopy(cc.translate(-7, -7), 6, 5, hs + 2, lobes: 4), ctx.fill(shade(base, .22)));
+  cv.drawLine(cc.translate(2, 10), cc.translate(7, 2), ctx.stroke(const Color(0xFF5A3B2A), 1));
+}
+
+/// Árvore de inverno: galhos com pouca folha verde-escura, coberta de neve, e neve no chão.
+void drawFrostTree(PropContext ctx) {
+  final cv = ctx.cv, o = ctx.o, hs = ctx.hs;
+  const snow = Color(0xFFF6F8FB), ice = Color(0xFFD8E6EF);
+  cv.drawOval(Rect.fromCenter(center: o.translate(2, 2), width: 34, height: 15), ctx.fill(snow));
+  cv.drawOval(Rect.fromCenter(center: o.translate(2, 2), width: 34, height: 15), ctx.stroke(ice, .8));
+  _trunk(ctx, 18 + hs % 4, 2.4, const Color(0xFF5A4A44));
+  final cc = o.translate(0, -31);
+  final dark = Path.combine(PathOperation.union, _canopy(cc.translate(4, 3), 15, 13, hs + 3, lobes: 6), _canopy(cc, 17, 15, hs));
+  cv.drawPath(dark, ctx.fill(const Color(0xFF4E7A6A)));
+  cv.drawPath(dark, ctx.stroke(const Color(0xFF7E99A8), .9));
+  // neve por cima: metade de cima da copa e pontas
+  cv.save();
+  cv.clipRect(Rect.fromLTRB(cc.dx - 30, cc.dy - 30, cc.dx + 30, cc.dy - 2));
+  cv.drawPath(_canopy(cc.translate(-1, -2), 16, 13, hs + 1, lobes: 7), ctx.fill(snow));
+  cv.restore();
+  cv.drawPath(_canopy(cc.translate(-5, -6), 8, 5, hs + 2, lobes: 5), ctx.fill(const Color(0xFFFFFFFF)));
+  for (final (dx, dy) in const [(-9.0, 4.0), (8.0, 6.0), (2.0, 9.0)]) {
+    cv.drawOval(Rect.fromCenter(center: cc.translate(dx, dy), width: 6, height: 2.6), ctx.fill(snow));
+  }
+}
+
+/// Círculo de fadas: anel de cogumelinhos com brilho no meio (onde as fadas dançam).
+void drawFairyRing(PropContext ctx) {
+  final cv = ctx.cv, o = ctx.o, hs = ctx.hs;
+  cv.drawOval(Rect.fromCenter(center: o, width: 44, height: 22), ctx.fill(const Color(0x22F2C8FF)));
+  cv.drawOval(Rect.fromCenter(center: o, width: 30, height: 15), ctx.fill(const Color(0x33FFF3B0)));
+  const caps = [Color(0xFFD9484A), Color(0xFFF2F0E6), Color(0xFFB98ADF)];
+  for (var i = 0; i < 11; i++) {
+    final a = i / 11 * 2 * pi;
+    final p = o.translate(cos(a) * 17, sin(a) * 8.5);
+    cv.drawLine(p, p.translate(0, -4), ctx.stroke(const Color(0xFFEDE6D2), 1.6));
+    final cap = caps[(hs + i) % 3];
+    cv.drawOval(Rect.fromCenter(center: p.translate(0, -4.5), width: 6, height: 3.6), ctx.fill(cap));
+    cv.drawOval(Rect.fromCenter(center: p.translate(0, -4.5), width: 6, height: 3.6), ctx.stroke(shade(cap, -.35), .6));
+    if (cap == caps[0]) cv.drawCircle(p.translate(-1, -5), .6, ctx.fill(const Color(0xFFFFFFFF)));
+  }
+  for (var i = 0; i < 4; i++) {
+    final a = hs * .7 + i * 1.6;
+    cv.drawCircle(o.translate(cos(a) * 6, -4 - (i % 2) * 5), 1.2, ctx.fill(const Color(0xFFFFF3B0)));
   }
 }
 

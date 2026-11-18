@@ -141,6 +141,10 @@ enum PropType {
   /// Cerca de madeira e sebe viva: liga-se às vizinhas e às muralhas (pintada arrastando).
   fence,
   hedge,
+  /// Árvores de outra estação (Pondsmânia mistura as quatro lado a lado) e círculo de fadas.
+  autumnTree,
+  frostTree,
+  fairyRing,
 }
 
 /// Famílias de construção. Cada uma tem desenho, tamanho e andares próprios.

@@ -7,6 +7,7 @@ import '../draw_helpers.dart';
 import 'building_kit.dart';
 import 'regional_painters.dart';
 import 'roof_painters.dart';
+import 'sacred_painters.dart';
 
 typedef BuildingPainter = void Function(Canvas cv, Building b, double time);
 
@@ -31,8 +32,8 @@ final Map<BuildingKind, BuildingPainter> buildingPainters = {
   BuildingKind.windmill: _windmill,
   BuildingKind.tower: _tower,
   BuildingKind.castle: _castle,
-  BuildingKind.temple: _temple,
-  BuildingKind.church: _church,
+  BuildingKind.temple: paintTemple,
+  BuildingKind.church: paintChurch,
   BuildingKind.manor: _manor,
   BuildingKind.modern: _modern,
   BuildingKind.block: _block,
@@ -624,165 +625,6 @@ void _castleFlags(Canvas cv, Building b, double t) {
   flag(cv, Iso.pt(x + s - .55, y + sd - .55, wh + 22 + 3 + 26), 14,
       const Color(0xFF3F6FB5), t,
       phase: 1.5);
-}
-
-// ---------------------------------------------------------------- templo
-void _temple(Canvas cv, Building b, double t) {
-  // capela/abadia românica: pedra clara, arcos redondos, contrafortes baixos e campanário na cumeeira
-  final g = Geo(b);
-  final wall = Color.lerp(b.wall, const Color(0xFFE2D8C4), .6)!;
-  _walls(cv, g, wall, texture: WallTexture.stone, bands: false);
-  for (var i = 1; i < b.width; i++) {
-    final a = g.left(i - .05, 0), c = g.left(i + .05, 0);
-    cv.drawPath(
-        Iso.poly([a, c, g.left(i + .05, g.h - 10), g.left(i - .05, g.h - 6)]),
-        Paint()..color = shade(wall, -.06));
-  }
-  windows(cv, g,
-      style: WindowStyle.arched,
-      skipDoorAt: _doorTile(b),
-      glass: const Color(0xFF6E8FD1),
-      rightGlass: const Color(0xFF5F7FC4),
-      frame: const Color(0xFFEFE7D8),
-      zOffset: 16,
-      height: 10);
-  door(cv, g, _doorTile(b),
-      color: const Color(0xFF5A3B2A), hgt: 20, halfW: .24);
-  _roof(cv, b, style: RoofStyle.slate);
-  // campanário na cumeeira
-  final rise = Iso.roofRise(b);
-  final bx = b.x + b.width / 2 - .17, by = b.y + b.depth / 2 - .17;
-  final z0 = g.h + rise - 6;
-  drawBox(cv, bx, by, .34, .34, z0, z0 + 16, wall);
-  final apex = Iso.pt(bx + .17, by + .17, z0 + 34);
-  fillPoly(
-      cv,
-      Iso.poly([
-        Iso.pt(bx - .03, by + .37, z0 + 16),
-        Iso.pt(bx + .37, by + .37, z0 + 16),
-        apex
-      ]),
-      b.roofColor,
-      line: shade(b.roofColor, -.28));
-  fillPoly(
-      cv,
-      Iso.poly([
-        Iso.pt(bx + .37, by + .37, z0 + 16),
-        Iso.pt(bx + .37, by - .03, z0 + 16),
-        apex
-      ]),
-      shade(b.roofColor, -.14),
-      line: shade(b.roofColor, -.28));
-  cv.drawLine(apex, apex.translate(0, -8), outline(const Color(0xFFF2C94C), 1.6));
-  cv.drawLine(apex.translate(-2.5, -5), apex.translate(2.5, -5),
-      outline(const Color(0xFFF2C94C), 1.6));
-}
-
-// ---------------------------------------------------------------- igreja
-/// Janela gótica: arco ogival alto e fino, com vitral azul.
-void _lancet(Canvas cv, Offset Function(double, double) f, double uc, double z0,
-    double z1, Color glass, {double hw = .14}) {
-  final p = Iso.poly([
-    f(uc - hw, z0),
-    f(uc + hw, z0),
-    f(uc + hw, z1),
-    f(uc + hw * .55, z1 + 6),
-    f(uc, z1 + 11),
-    f(uc - hw * .55, z1 + 6),
-    f(uc - hw, z1),
-  ]);
-  cv.drawPath(p, Paint()..color = glass);
-  cv.drawPath(p, outline(const Color(0xFFEFE7D8), 1.3));
-  cv.drawLine(f(uc, z0), f(uc, z1 + 8), outline(const Color(0xFFEFE7D8), .8));
-}
-
-/// Igreja gótica: nave com contrafortes, janelas ogivais, rosácea e torre com flecha.
-void _church(Canvas cv, Building b, double t) {
-  final g = Geo(b);
-  final wall = Color.lerp(b.wall, const Color(0xFFE4DAC6), .55)!;
-  _walls(cv, g, wall, texture: WallTexture.stone, bands: false);
-  // contrafortes entre as janelas (inclinados no topo)
-  void buttress(Offset Function(double, double) f, double u, Color c) {
-    final a = f(u - .05, 0), bb = f(u + .05, 0);
-    final top = g.h - 8;
-    final p = Iso.poly([a, bb, f(u + .05, top), f(u - .05, top + 4)]);
-    cv.drawPath(p, Paint()..color = shade(c, -.06));
-    cv.drawPath(p, outline(_line(c), 1));
-  }
-
-  for (var i = 1; i < b.width; i++) {
-    buttress(g.left, i.toDouble(), wall);
-  }
-  for (var i = 1; i < b.depth; i++) {
-    buttress(g.right, i.toDouble(), shade(wall, -.1));
-  }
-  // vitrais ogivais
-  for (var i = 0; i < b.width; i++) {
-    if (i == _doorTile(b)) continue;
-    _lancet(cv, g.left, i + .5, 10, 26, const Color(0xFF5F7FC4));
-  }
-  for (var i = 0; i < b.depth; i++) {
-    _lancet(cv, g.right, i + .5, 10, 26, const Color(0xFF4F6FB0));
-  }
-  // portal ogival e rosácea
-  final dc = _doorTile(b) + .5;
-  final portal = Iso.poly([
-    g.left(dc - .26, 0),
-    g.left(dc + .26, 0),
-    g.left(dc + .26, 18),
-    g.left(dc + .12, 26),
-    g.left(dc, 30),
-    g.left(dc - .12, 26),
-    g.left(dc - .26, 18),
-  ]);
-  cv.drawPath(portal, Paint()..color = const Color(0xFF4A3225));
-  cv.drawPath(portal, outline(const Color(0xFFEFE7D8), 1.6));
-  _roof(cv, b, style: RoofStyle.slate);
-  // campanário na frente, com flecha alta
-  final sx = b.x + .02, sy = b.y + b.depth - .95;
-  final sh = g.h + 56;
-  final tw = Geo.box(b, sx, sy, .93, .93, sh);
-  shadedFace(cv, tw.leftFace(), wall, line: _line(wall), lw: 1.4);
-  shadedFace(cv, tw.rightFace(), shade(wall, -.1), line: _line(wall), lw: 1.4);
-  wallTexture(cv, tw, WallTexture.stone, wall);
-  // friso e rosácea na base da torre
-  final rose = tw.left(.465, 20);
-  cv.drawOval(Rect.fromCenter(center: rose, width: 13, height: 15),
-      Paint()..color = const Color(0xFF5F7FC4));
-  cv.drawOval(Rect.fromCenter(center: rose, width: 13, height: 15),
-      outline(const Color(0xFFEFE7D8), 1.4));
-  for (var k = 0; k < 4; k++) {
-    final a = k * pi / 4;
-    cv.drawLine(rose.translate(-cos(a) * 6, -sin(a) * 7),
-        rose.translate(cos(a) * 6, sin(a) * 7), outline(const Color(0xFFEFE7D8), .8));
-  }
-  // vãos do sino
-  _lancet(cv, tw.left, .465, sh - 18, sh - 6, const Color(0xFF2E3744), hw: .2);
-  _lancet(cv, tw.right, .465, sh - 18, sh - 6, const Color(0xFF262E3A), hw: .2);
-  final spire = b.roofColor;
-  final apex = Iso.pt(sx + .46, sy + .46, sh + 70);
-  fillPoly(
-      cv,
-      Iso.poly([
-        Iso.pt(sx - .05, sy + .98, sh),
-        Iso.pt(sx + .98, sy + .98, sh),
-        apex
-      ]),
-      spire,
-      line: shade(spire, -.28));
-  fillPoly(
-      cv,
-      Iso.poly([
-        Iso.pt(sx + .98, sy + .98, sh),
-        Iso.pt(sx + .98, sy - .05, sh),
-        apex
-      ]),
-      shade(spire, -.14),
-      line: shade(spire, -.28));
-  // cruz dourada
-  cv.drawLine(apex, apex.translate(0, -10), outline(const Color(0xFFF2C94C), 1.8));
-  cv.drawLine(apex.translate(-3, -7), apex.translate(3, -7),
-      outline(const Color(0xFFF2C94C), 1.8));
 }
 
 // ---------------------------------------------------------------- mansão

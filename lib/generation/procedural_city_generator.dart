@@ -188,7 +188,7 @@ class _CityBuild {
     if (st.oval) _buildOval();
     // nos mapas oficiais a área vem desligada no editor, mas o usuário pode pedir
     if (withZone && sys.hasZone) _paintZone();
-    if (!st.oval) _buildPlaza();
+    if (!st.oval && st.hasPlaza) _buildPlaza();
     _placeLamps();
     _placeLandmark();
     _assignDistricts();
@@ -207,8 +207,64 @@ class _CityBuild {
     _addGroves();
     if (st.chaotic) _sprinkleMagic();
     _populateZone();
+    _wallCastles();
     _populateLife();
     return city;
+  }
+
+  /// Castelo só existe como estrutura de reino: todo castelo que ficou solto (sem muralha em
+  /// volta) ganha uma cidadela — anel de muralha a um bloco dele, com portão voltado para a
+  /// rua mais próxima. Castelos que já estão dentro de muralhas ficam como estão.
+  void _wallCastles() {
+    for (final c in city.buildings.where((b) => b.kind == BuildingKind.castle).toList()) {
+      final x0 = c.x - 1, y0 = c.y - 1, x1 = c.x + c.width, y1 = c.y + c.depth;
+      var walled = 0, ring = 0;
+      for (var x = x0; x <= x1; x++) {
+        for (var y = y0; y <= y1; y++) {
+          if (x != x0 && x != x1 && y != y0 && y != y1) continue;
+          ring++;
+          if (city.walls.at(x, y)) walled++;
+        }
+      }
+      if (walled * 2 >= ring) continue; // já tem muralha própria
+      // portão: no meio do lado da frente (sul), ligado à rua mais próxima
+      final gx = c.x + c.width ~/ 2, gy = y1;
+      for (var x = x0; x <= x1; x++) {
+        for (var y = y0; y <= y1; y++) {
+          if (x != x0 && x != x1 && y != y0 && y != y1) continue;
+          if (!city.inBounds(x, y) || city.water.at(x, y)) continue;
+          if (city.buildings.any((b) => !identical(b, c) && b.occupies(x, y))) continue;
+          for (final p in city.props.where((p) => p.x == x && p.y == y).toList()) {
+            city.remove(p);
+          }
+          if (x == gx && y == gy) {
+            city.road.set(x, y, true);
+            city.plaza.set(x, y, false);
+            city.walls.set(x, y, false);
+            city.palisade.set(x, y, false);
+            city.lowWall.set(x, y, false);
+            continue;
+          }
+          if (city.road.at(x, y) || city.plaza.at(x, y)) {
+            // rua que cruza o anel vira portão (muro dos dois lados); praça vira muro
+            if (city.road.at(x, y)) continue;
+            city.plaza.set(x, y, false);
+          }
+          city.walls.set(x, y, true);
+          occupied.set(x, y, true);
+        }
+      }
+      // caminho do portão até a rua mais próxima (para o sul, até 8 blocos)
+      for (var y = gy + 1; y <= gy + 8 && city.inBounds(gx, y); y++) {
+        if (city.road.at(gx, y) || city.plaza.at(gx, y) || city.water.at(gx, y) || city.walls.at(gx, y)) break;
+        if (city.buildings.any((b) => b.occupies(gx, y))) break;
+        for (final p in city.props.where((p) => p.x == gx && p.y == y).toList()) {
+          city.remove(p);
+        }
+        city.road.set(gx, y, true);
+        city.dirt.set(gx, y, false);
+      }
+    }
   }
 
   /// Vida no mapa: pessoas do cenário (classes, raças e povo) andando pelas ruas e praças, e
@@ -435,8 +491,44 @@ class _CityBuild {
     }
   }
 
-  /// Pondsmânia: flores gigantes e luzes de fada em todo canto que sobrou.
+  /// Pondsmânia: o tempo e o espaço não obedecem. Manchas de estação diferentes lado a lado
+  /// (primavera em flor, verão, outono e inverno com neve), círculos de fadas, ilhotas de terra
+  /// flutuando e, em todo canto que sobrou, flores gigantes e luzes de fada.
   void _sprinkleMagic() {
+    // estações: cada mancha transforma as árvores de dentro dela
+    const seasons = [PropType.sakura, PropType.autumnTree, PropType.frostTree, PropType.tree];
+    final patches = [
+      for (var i = 0; i < 5 + n ~/ 12; i++)
+        (r.nextInt(n), r.nextInt(nY), 3.0 + r.nextDouble() * 4, seasons[i % seasons.length])
+    ];
+    for (final p in city.props.toList()) {
+      if (p.type != PropType.tree && p.type != PropType.pine && p.type != PropType.sakura) continue;
+      for (final (cx, cy, rad, season) in patches) {
+        if (pow(p.x - cx, 2) + pow(p.y - cy, 2) <= rad * rad) {
+          if (season != p.type) city.replace(Prop(id: p.id, x: p.x, y: p.y, type: season));
+          break;
+        }
+      }
+    }
+    // círculos de fadas e ilhotas flutuando, em chão livre
+    var rings = 3 + n ~/ 16;
+    for (var tries = 0; tries < 400 && rings > 0; tries++) {
+      final x = r.nextInt(n), y = r.nextInt(nY);
+      if (occupied.at(x, y) || city.road.at(x, y) || city.water.at(x, y)) continue;
+      if (city.props.any((p) => (p.x - x).abs() <= 1 && (p.y - y).abs() <= 1)) continue;
+      _addProp(PropType.fairyRing, x, y);
+      rings--;
+    }
+    // ilhotas flutuando sobre lagos e clareiras (o espaço não obedece)
+    var isles = 2 + n ~/ 16;
+    for (var tries = 0; tries < 600 && isles > 0; tries++) {
+      final x = 2 + r.nextInt(n - 4), y = 2 + r.nextInt(nY - 4);
+      if (city.road.at(x, y) || city.buildings.any((b) => b.occupies(x, y))) continue;
+      if (city.props.any((p) => p.x == x && p.y == y)) continue;
+      if (!city.water.at(x, y) && occupied.at(x, y)) continue;
+      _addProp(PropType.skyIsle, x, y);
+      isles--;
+    }
     for (var x = 0; x < n; x++) {
       for (var y = 0; y < nY; y++) {
         if (occupied.at(x, y) || city.road.at(x, y) || city.water.at(x, y)) continue;
@@ -1201,9 +1293,16 @@ class _CityBuild {
     if (kind == null) return;
     final candidates = blocks.where((b) => !identical(b, plaza)).toList()
       ..sort((a, b) => _area(b).compareTo(_area(a)));
+    if (!st.hasPlaza) {
+      // sem praça, o marco fica no coração do lugar (o quarteirão mais perto do centro)
+      double dist(_Block b) => (b.centerX - n / 2).abs() + (b.centerY - nY / 2).abs();
+      candidates.sort((a, b) => dist(a).compareTo(dist(b)));
+    }
     final spec = BuildingKindSpec.of(kind);
-    final shapes = [...spec.footprints]
-      ..sort((a, b) => (b.$1 * b.$2).compareTo(a.$1 * a.$2));
+    final shapes = [
+      if (st.landmarkSize case final s?) (s, s),
+      ...spec.footprints,
+    ]..sort((a, b) => (b.$1 * b.$2).compareTo(a.$1 * a.$2));
     for (final block in candidates) {
       for (final (w, d) in shapes) {
         if (_lotFits(block.x0, block.y0, w, d, block)) {
@@ -1332,7 +1431,10 @@ class _CityBuild {
         continue; // a estátua da cidade oval já foi posta no centro
       }
       final spec = BuildingKindSpec.of(e.kind);
-      final (w, d) = spec.footprints.first;
+      final (w0, d0) = spec.footprints.first;
+      // castelo precisa de um bloco de folga em volta para a muralha da cidadela
+      final pad = e.kind == BuildingKind.castle ? 1 : 0;
+      final w = w0 + pad * 2, d = d0 + pad * 2;
       final cands = blocks
           .where((b) =>
               !identical(b, plaza) &&
@@ -1361,7 +1463,7 @@ class _CityBuild {
         x = b.x0;
         y = b.y0;
       }
-      _addBuilding(x, y, w, d, e.kind, names: [e.name]);
+      _addBuilding(x + pad, y + pad, w0, d0, e.kind, names: [e.name]);
       _extraBlocks.add(b);
       if (e.pond) {
         // lago em volta (só dentro do quarteirão) e o resto do quarteirão livre

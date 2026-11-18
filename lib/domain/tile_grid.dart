@@ -12,6 +12,9 @@ class TileGrid {
 
   bool at(int x, int y) => inBounds(x, y) && _cells[x * size + y];
 
+  /// Quantos tiles estão marcados.
+  int get count => _cells.where((c) => c).length;
+
   /// Ignora escritas fora dos limites.
   void set(int x, int y, bool value) {
     if (!inBounds(x, y) || _cells[x * size + y] == value) return;

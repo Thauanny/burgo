@@ -77,18 +77,32 @@ final class Prop extends MapItem {
       required super.x,
       required super.y,
       required this.type,
-      this.race});
+      this.race,
+      this.roam});
   final PropType type;
+
+  /// Raio (em blocos, contando só os 4 sentidos) em que o ser vivo pode andar a partir do
+  /// seu tile. Nulo = o padrão ([defaultRoam]); 0 = fica parado no lugar.
+  final int? roam;
+
+  static const defaultRoam = 4;
+
+  int get roamRadius => roam ?? defaultRoam;
 
   /// Raça de uma pessoa (classe ou povo); o boneco muda de corpo, rosto e traços com ela.
   /// Sem raça, o desenho sorteia uma entre as do cenário.
   final PropType? race;
 
   @override
-  Prop movedTo(int x, int y) => Prop(id: id, x: x, y: y, type: type, race: race);
+  Prop movedTo(int x, int y) => Prop(id: id, x: x, y: y, type: type, race: race, roam: roam);
 
-  Prop copyWith({PropType? type, PropType? race, bool clearRace = false}) =>
-      Prop(id: id, x: x, y: y, type: type ?? this.type, race: clearRace ? null : race ?? this.race);
+  Prop copyWith({PropType? type, PropType? race, bool clearRace = false, int? roam}) => Prop(
+      id: id,
+      x: x,
+      y: y,
+      type: type ?? this.type,
+      race: clearRace ? null : race ?? this.race,
+      roam: roam ?? this.roam);
 }
 
 /// Plantação ou pasto ocupando `width × depth` tiles, com cerca.

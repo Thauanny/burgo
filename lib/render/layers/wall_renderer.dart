@@ -56,6 +56,85 @@ class WallRenderer {
     cv.drawPath(flag, Paint()..color = const Color(0xFFC8402F));
   }
 
+  /// Paliçada: troncos apontados lado a lado nos braços, com uma torre de vigia de madeira
+  /// nas pontas e quinas.
+  void paintPalisade(Canvas cv, TileGrid walls, int x, int y) {
+    const wood = Color(0xFF8A6244), dark = Color(0xFF4E3524);
+    final cx = x + .5, cy = y + .5;
+    final arms = [
+      for (final (dx, dy) in const [(0, -1), (-1, 0), (1, 0), (0, 1)])
+        if (walls.at(x + dx, y + dy)) (dx, dy)
+    ];
+    final logLine = Paint()
+      ..color = dark
+      ..strokeWidth = 4.6
+      ..strokeCap = StrokeCap.butt;
+    final logFill = Paint()
+      ..color = wood
+      ..strokeWidth = 3.4
+      ..strokeCap = StrokeCap.butt;
+    void log(double px, double py, double h) {
+      final b = Iso.pt(px, py), t = Iso.pt(px, py, h);
+      cv.drawLine(b, t, logLine);
+      cv.drawLine(b, t, logFill);
+      final tip = Path()
+        ..moveTo(t.dx - 2.3, t.dy)
+        ..lineTo(t.dx, t.dy - 4.5)
+        ..lineTo(t.dx + 2.3, t.dy)
+        ..close();
+      cv.drawPath(tip, Paint()..color = shade(wood, .12));
+      cv.drawPath(tip, Paint()
+        ..color = dark
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .8);
+    }
+
+    void arm(int dx, int dy) {
+      for (var i = 1; i <= 4; i++) {
+        final t = i / 8;
+        log(cx + dx * t, cy + dy * t, 20 + ((x * 3 + y * 5 + i) % 3) * 1.5);
+      }
+    }
+
+    for (final (dx, dy) in arms.where((a) => a.$1 < 0 || a.$2 < 0)) {
+      arm(dx, dy);
+    }
+    final corner = arms.any((a) => a.$1 != 0) && arms.any((a) => a.$2 != 0);
+    if (arms.length <= 1 || (corner && (x * 7 + y * 13) % 3 == 0)) {
+      // torre de vigia: quatro pilares, plataforma e telhadinho
+      for (final (dx, dy) in const [(-.22, -.22), (.22, -.22), (-.22, .22), (.22, .22)]) {
+        cv.drawLine(Iso.pt(cx + dx, cy + dy), Iso.pt(cx + dx, cy + dy, 30), logLine);
+        cv.drawLine(Iso.pt(cx + dx, cy + dy), Iso.pt(cx + dx, cy + dy, 30), logFill);
+      }
+      drawBox(cv, cx - .3, cy - .3, .6, .6, 28, 32, shade(wood, .06));
+      cone(cv, cx, cy, .38, 32, 12, const Color(0xFF6E4A30));
+    } else {
+      log(cx, cy, 22);
+    }
+    for (final (dx, dy) in arms.where((a) => a.$1 > 0 || a.$2 > 0)) {
+      arm(dx, dy);
+    }
+  }
+
+  /// Muro baixo de pedra seca (cerca de pedra do campo), sem torres nem ameias.
+  void paintLowWall(Canvas cv, TileGrid walls, int x, int y, {Color stone = _stone}) {
+    final cx = x + .5, cy = y + .5;
+    const lo = .14, h = 9.0;
+    final n = walls.at(x, y - 1), s = walls.at(x, y + 1), w = walls.at(x - 1, y), e = walls.at(x + 1, y);
+    final col = shade(stone, -.06);
+    if (n) drawBox(cv, cx - lo, y.toDouble(), lo * 2, .5 + lo, 0, h, col);
+    if (w) drawBox(cv, x.toDouble(), cy - lo, .5 + lo, lo * 2, 0, h, col);
+    drawBox(cv, cx - lo, cy - lo, lo * 2, lo * 2, 0, h + 1, col);
+    if (s) drawBox(cv, cx - lo, cy, lo * 2, .5, 0, h, col);
+    if (e) drawBox(cv, cx, cy - lo, .5, lo * 2, 0, h, col);
+    if (!(n || s || w || e)) drawBox(cv, x + .1, cy - lo, .8, lo * 2, 0, h, col);
+    // pedras do topo
+    final cap = Paint()..color = shade(stone, .1);
+    for (final (dx, dy) in [(0.0, 0.0), if (e) (.3, 0.0), if (s) (0.0, .3), if (w) (-.3, 0.0), if (n) (0.0, -.3)]) {
+      cv.drawOval(Rect.fromCenter(center: Iso.pt(cx + dx, cy + dy, h + 1), width: 9, height: 4), cap);
+    }
+  }
+
   void paintTile(Canvas cv, TileGrid walls, int x, int y,
       {bool sparseTowers = false, Color stone = _stone, Color roof = _roof}) {
     final cx = x + .5, cy = y + .5;

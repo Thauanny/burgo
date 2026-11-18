@@ -139,6 +139,12 @@ class _CityExportScene implements SceneView {
   double get time => e.time;
   @override
   PlacementPreview? get preview => null;
+  @override
+  bool get animatePeople => e.animatePeople;
+  @override
+  bool get animateMonsters => e.animateMonsters;
+  @override
+  bool get animateAnimals => e.animateAnimals;
 }
 
 class _DungeonExportScene implements DungeonScene {

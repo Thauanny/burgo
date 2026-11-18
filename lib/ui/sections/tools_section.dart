@@ -26,8 +26,11 @@ const _toolIcons = {
 };
 
 class ToolsSection extends StatelessWidget {
-  const ToolsSection({super.key, required this.editor});
+  const ToolsSection({super.key, required this.editor, this.picker = true, this.options = true});
   final EditorState editor;
+
+  /// Mostra os botões das ferramentas e/ou as opções da ferramenta ativa.
+  final bool picker, options;
 
   /// Ferramentas em grupos, na ordem de uso: navegar, terreno, construir, anotar, apagar.
   static const _groups = [
@@ -42,7 +45,7 @@ class ToolsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final sys = editor.system;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionTitle(Strings.sectionTools),
+      if (picker)
       for (final (label, ids) in _groups) ...[
         SubLabel(label, top: 6),
         Wrap(spacing: 6, runSpacing: 6, children: [
@@ -56,17 +59,70 @@ class ToolsSection extends StatelessWidget {
               ),
         ]),
       ],
-      if (editor.toolId == ToolId.prop)
-        ..._grouped(PropGroup.objectGroups, sys.availableObjects, editor.propType,
+      if (options) ..._toolOptions(),
+      if (options && editor.toolId == ToolId.prop)
+        ..._grouped(PropGroup.objectGroups, editor.availableObjects, editor.propType,
             editor.setPropType),
-      if (editor.toolId == ToolId.character) ...[
-        ..._grouped(PropGroup.characterGroups, sys.availableCharacters,
+      if (options && editor.toolId == ToolId.character) ...[
+        ..._grouped(PropGroup.characterGroups, editor.availableCharacters,
             editor.characterType, editor.setCharacterType),
-        if (Figures.isPerson(editor.characterType) && sys.availableRaces.isNotEmpty)
+        if (Figures.isPerson(editor.characterType) && editor.availableRaces.isNotEmpty)
           ...raceChips(editor, editor.characterRace, editor.setCharacterRace),
       ],
     ]);
   }
+
+  /// Opções da ferramenta ativa (tipo de rua, de muro) e uma dica de uso.
+  List<Widget> _toolOptions() {
+    Widget chips<T>(String label, List<(T, String, IconData)> items, T selected, void Function(T) pick) =>
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SubLabel(label),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final (v, text, icon) in items)
+              PaperChip(
+                avatar: Icon(icon, size: 18),
+                label: Text(text),
+                selected: selected == v,
+                onSelected: (_) => pick(v),
+              ),
+          ]),
+        ]);
+    return switch (editor.toolId) {
+      ToolId.road => [
+          chips<RoadKind>('Tipo de rua', const [
+            (RoadKind.paved, 'Rua calçada', Icons.add_road),
+            (RoadKind.dirt, 'Estrada de terra', Icons.terrain),
+            (RoadKind.plaza, 'Praça', Icons.crop_square),
+          ], editor.roadKind, editor.setRoadKind),
+          _hint('Arraste para pintar; comece num tile já pintado para apagar.'),
+        ],
+      ToolId.wall => [
+          chips<WallKind>('Tipo de muro', const [
+            (WallKind.stone, 'Muralha de pedra', Icons.fort),
+            (WallKind.palisade, 'Paliçada de madeira', Icons.fence),
+            (WallKind.low, 'Muro baixo de pedra', Icons.horizontal_rule),
+            (WallKind.fence, 'Cerca de madeira', Icons.fence),
+            (WallKind.hedge, 'Sebe (cerca viva)', Icons.grass),
+          ], editor.wallKind, editor.setWallKind),
+          _hint('Arraste para pintar; comece num trecho já pintado para apagar. Uma rua cruzando '
+              'a muralha vira portão; cercas e sebes se ligam entre si e aos muros.'),
+        ],
+      ToolId.water => [_hint('Arraste para pintar rios e lagos; sobre uma rua vira ponte.')],
+      ToolId.pan => [
+          _hint('Arraste para mover o mapa (nada sai do lugar). Clique num item para ver as '
+              'opções dele — num personagem ou monstro, o raio de movimento.')
+        ],
+      ToolId.select => [_hint('Clique num item para ver as opções dele; arraste para movê-lo.')],
+      ToolId.erase => [_hint('Clique em um item para apagá-lo.')],
+      _ => const [],
+    };
+  }
+
+  Widget _hint(String text) => Builder(
+      builder: (context) => Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+          ));
 
   /// Chips de raça (combinada com a classe ou ocupação escolhida).
   static List<Widget> raceChips(EditorState editor, PropType? selected, void Function(PropType) onPick) {
@@ -74,7 +130,7 @@ class ToolsSection extends StatelessWidget {
     return [
       const SubLabel('Raça'),
       Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final r in sys.availableRaces)
+        for (final r in editor.availableRaces)
           PaperChip(
             label: Text(Strings.propFor(r, sys.id)),
             selected: selected == r,

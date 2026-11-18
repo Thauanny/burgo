@@ -27,7 +27,7 @@ String _citySig(City c) => [
       c.systemId,
       c.settlementId,
       c.mode.name,
-      for (final g in [c.road, c.plaza, c.zone, c.water, c.walls, c.dirt])
+      for (final g in [c.road, c.plaza, c.zone, c.water, c.walls, c.dirt, c.palisade, c.lowWall])
         [
           for (var x = 0; x < c.size; x++)
             for (var y = 0; y < c.size; y++) g.at(x, y) ? 1 : 0
@@ -36,7 +36,7 @@ String _citySig(City c) => [
         '${b.id},${b.x},${b.y},${b.width},${b.depth},${b.floors},${b.roof.name},${b.kind.name},${b.wall.toARGB32()},${b.roofColor.toARGB32()},${b.chimney},${b.name}',
       for (final f in c.farms)
         '${f.id},${f.x},${f.y},${f.width},${f.depth},${f.crop.name}',
-      for (final p in c.props) '${p.id},${p.x},${p.y},${p.type.name},${p.race?.name}',
+      for (final p in c.props) '${p.id},${p.x},${p.y},${p.type.name},${p.race?.name},${p.roam}',
       c.nextId,
     ].join('|');
 

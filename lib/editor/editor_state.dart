@@ -13,6 +13,7 @@ import '../domain/placement_rules.dart';
 import '../dungeon/dungeon_editor.dart';
 import '../dungeon/dungeon_generator.dart' show DungeonDensity;
 import '../generation/city_generator.dart';
+import '../generation/life_populator.dart';
 import '../geometry/iso.dart';
 import '../persistence/city_codec.dart';
 import '../project/floor_navigator.dart';
@@ -50,6 +51,7 @@ class EditorState extends ChangeNotifier
         system = systems.fallback {
     settlement = system.art.settlements.first;
     mode = settlement.defaultMode;
+    withZone = defaultZoneFor(settlement);
     city = _generate(seed: _newSeed(), tiles: CitySize.town.tiles);
   }
 
@@ -117,6 +119,77 @@ class EditorState extends ChangeNotifier
   /// Liga/desliga as animações (vento, animais, efeitos da área especial).
   bool animationsEnabled = true;
 
+  /// Liga/desliga só o andar das pessoas, dos monstros e dos animais (parados, ficam no
+  /// tile onde foram postos).
+  @override
+  bool animatePeople = true;
+  @override
+  bool animateMonsters = true;
+  @override
+  bool animateAnimals = true;
+
+  /// Tipo de rua e de muro das ferramentas Ruas e Muros.
+  @override
+  RoadKind roadKind = RoadKind.paved;
+  @override
+  WallKind wallKind = WallKind.stone;
+
+  /// Na ferramenta Fazenda: objeto a colocar (nulo = plantação).
+  @override
+  PropType? farmProp;
+
+  /// Raio de movimento das pessoas, dos monstros e dos animais (para todos de uma vez e
+  /// para os novos que forem postos).
+  int roamPeople = Prop.defaultRoam, roamMonsters = Prop.defaultRoam, roamAnimals = Prop.defaultRoam;
+
+  @override
+  int? roamDefault(PropType t) {
+    final r = Figures.isPerson(t)
+        ? roamPeople
+        : Figures.isMonster(t)
+            ? roamMonsters
+            : _animals.contains(t)
+                ? roamAnimals
+                : null;
+    return r == null || r == Prop.defaultRoam ? null : r;
+  }
+
+  static const _animals = {PropType.cow, PropType.sheep, PropType.chicken, PropType.dog, PropType.horse};
+
+  void setFarmProp(PropType? t) {
+    farmProp = t;
+    notifyListeners();
+  }
+
+  /// Muda o raio de movimento de todas as pessoas, monstros ou animais do mapa.
+  void setRoamAll({int? people, int? monsters, int? animals}) {
+    beginEdit();
+    if (people != null) roamPeople = people;
+    if (monsters != null) roamMonsters = monsters;
+    if (animals != null) roamAnimals = animals;
+    for (final p in List.of(city.props)) {
+      final r = people != null && Figures.isPerson(p.type)
+          ? people
+          : monsters != null && Figures.isMonster(p.type)
+              ? monsters
+              : animals != null && _animals.contains(p.type)
+                  ? animals
+                  : null;
+      if (r != null && p.roamRadius != r) city.replace(p.copyWith(roam: r));
+    }
+    if (selected is Prop) selected = city.props.firstWhere((p) => p.id == selected!.id, orElse: () => selected! as Prop);
+    notifyListeners();
+  }
+
+  /// Aplica o raio padrão de cada categoria aos seres sem raio próprio (depois de povoar).
+  void _applyRoamDefaults() {
+    for (final p in List.of(city.props)) {
+      if (p.roam != null) continue;
+      final r = roamDefault(p.type);
+      if (r != null) city.replace(p.copyWith(roam: r));
+    }
+  }
+
   /// Mostra as setas nas laterais do mapa para aumentá-lo.
   bool showExpandArrows = true;
 
@@ -168,6 +241,10 @@ class EditorState extends ChangeNotifier
         'view': viewMode.name,
         'rotation': rotation,
         'animations': animationsEnabled,
+        'animatePeople': animatePeople,
+        'animateMonsters': animateMonsters,
+        'animateAnimals': animateAnimals,
+        'roam': [roamPeople, roamMonsters, roamAnimals],
         'arrows': showExpandArrows,
         'floor': activeEntranceId,
         'dungeons': [
@@ -196,6 +273,13 @@ class EditorState extends ChangeNotifier
     viewMode = ViewMode.values.asNameMap()[json['view']] ?? ViewMode.isometric;
     rotation = ((json['rotation'] as num?)?.toInt() ?? 0) % 4;
     animationsEnabled = json['animations'] as bool? ?? true;
+    animatePeople = json['animatePeople'] as bool? ?? true;
+    animateMonsters = json['animateMonsters'] as bool? ?? true;
+    animateAnimals = json['animateAnimals'] as bool? ?? true;
+    final roam = (json['roam'] as List?)?.cast<num>() ?? const [];
+    roamPeople = roam.isNotEmpty ? roam[0].toInt() : Prop.defaultRoam;
+    roamMonsters = roam.length > 1 ? roam[1].toInt() : Prop.defaultRoam;
+    roamAnimals = roam.length > 2 ? roam[2].toInt() : Prop.defaultRoam;
     showExpandArrows = json['arrows'] as bool? ?? true;
     if (!system.availableProps.contains(propType)) {
       propType = system.availableProps.first;
@@ -381,8 +465,8 @@ class EditorState extends ChangeNotifier
   void setSettlement(SettlementType type) {
     settlement = type;
     mode = type.defaultMode;
-    // a área especial volta ao trocar de tipo (a não ser que o lugar não tenha)
-    withZone = !type.noZone && (type.wildZone ?? true);
+    // a área especial volta ao trocar de tipo (cidades oficiais nascem sempre sem ela)
+    withZone = defaultZoneFor(type);
     _syncDraftToEra();
     generate(seed: city.seed);
   }
@@ -392,10 +476,16 @@ class EditorState extends ChangeNotifier
     generate(seed: city.seed);
   }
 
+  /// A área especial vem ligada só nas cidades e vilas livres (`wildZone`); em todos os outros
+  /// lugares — cidades oficiais, vilas e florestas do cenário — vem desligada. A pessoa pode
+  /// ligar quando quiser (opção "Área especial" na geração).
+  static bool defaultZoneFor(SettlementType t) => !t.noZone && t.wildZone == true;
+
   void setSystem(RpgSystem s) {
     system = s;
     settlement = s.art.settlements.first;
     mode = settlement.defaultMode;
+    withZone = defaultZoneFor(settlement);
     if (!s.hasZone && (toolId == ToolId.zone || toolId == ToolId.zoneSource)) {
       toolId = ToolId.pan;
     }
@@ -419,6 +509,7 @@ class EditorState extends ChangeNotifier
         : system.art.settlements.firstWhere((s) => s.id == settlementId,
             orElse: () => system.art.settlements.first);
     this.mode = mode ?? settlement.defaultMode;
+    withZone = defaultZoneFor(settlement);
     if (!system.hasZone &&
         (toolId == ToolId.zone || toolId == ToolId.zoneSource)) {
       toolId = ToolId.pan;
@@ -445,6 +536,25 @@ class EditorState extends ChangeNotifier
 
   /// Época do lugar atual (do tipo de assentamento, senão do cenário).
   Era get era => settlement.era ?? system.art.era;
+
+  /// Tudo o que dá para pôr no mapa aqui: os objetos da época do lugar e, além deles, todo
+  /// tipo que já está no mapa (o que a cidade gerou sempre pode ser colocado de novo).
+  List<PropType> get availableProps {
+    final base = system.availablePropsFor(era);
+    final seen = base.toSet();
+    return [
+      ...base,
+      for (final p in city.props)
+        if (seen.add(p.type) && (!Figures.isFigure(p.type) || Figures.isMonster(p.type) || !Figures.races.contains(p.type)))
+          p.type,
+    ];
+  }
+
+  /// Objetos (sem pessoas e monstros), personagens (classes, povo, monstros) e raças.
+  List<PropType> get availableObjects => availableProps.where((p) => !Figures.isFigure(p)).toList();
+  List<PropType> get availableCharacters =>
+      availableProps.where((p) => Figures.isFigure(p) && !Figures.races.contains(p)).toList();
+  List<PropType> get availableRaces => system.availablePropsFor(era).where(Figures.races.contains).toList();
 
   /// A construção-modelo da ferramenta Construir começa com a casa comum da época.
   void _syncDraftToEra() {
@@ -549,6 +659,69 @@ class EditorState extends ChangeNotifier
     updateItem(p.copyWith(race: race));
   }
 
+  /// Raio (em blocos, nos 4 sentidos) em que o ser vivo selecionado pode andar.
+  void setSelectedRoam(int radius) {
+    final p = selected;
+    if (p is! Prop) return;
+    updateItem(p.copyWith(roam: radius));
+  }
+
+  void setRoadKind(RoadKind k) {
+    roadKind = k;
+    notifyListeners();
+  }
+
+  void setWallKind(WallKind k) {
+    wallKind = k;
+    notifyListeners();
+  }
+
+  void setAnimatePeople(bool v) {
+    animatePeople = v;
+    notifyListeners();
+  }
+
+  void setAnimateMonsters(bool v) {
+    animateMonsters = v;
+    notifyListeners();
+  }
+
+  void setAnimateAnimals(bool v) {
+    animateAnimals = v;
+    notifyListeners();
+  }
+
+  // ---------- população ----------
+  LifePopulator _populator(int salt) =>
+      LifePopulator(city, system, settlement, Random(city.seed * 31 + salt));
+
+  int get peopleCount => LifePopulator.peopleIn(city);
+  int get monsterCount => LifePopulator.monstersIn(city);
+
+  /// Quantas pessoas cabem (ruas e praças livres) e quantos monstros dá para pôr.
+  int get maxPeople => _populator(0).maxPeople();
+  int get maxMonsters => system.art.monsters.isEmpty ? 0 : 80;
+
+  /// Põe ou tira pessoas até a cidade ter [count] (raças pela lore do lugar).
+  void setPeopleCount(int count) {
+    if (count == peopleCount) return;
+    beginEdit();
+    _populator(count).setPeople(count);
+    _applyRoamDefaults();
+    if (selected is Prop && !city.props.any((p) => p.id == selected!.id)) selected = null;
+    notifyListeners();
+  }
+
+  /// Põe ou tira monstros (em acampamentos fora da cidade) até haver [count].
+  void setMonsterCount(int count) {
+    if (count == monsterCount) return;
+    beginEdit();
+    _populator(count + 7).setMonsters(count);
+    _applyRoamDefaults();
+    if (selected is Prop && !city.props.any((p) => p.id == selected!.id)) selected = null;
+    notifyListeners();
+  }
+
   void setPropType(PropType type) {
     propType = type;
     notifyListeners();
@@ -564,9 +737,27 @@ class EditorState extends ChangeNotifier
   };
   Tool? _dragTool;
 
+  /// Item que ocupa o tile clicado (ferramentas de colocar só selecionam o que está no
+  /// próprio tile: clicar no chão livre ao lado de uma árvore coloca, não seleciona a árvore).
+  MapItem? _itemOnTile(Offset scene) {
+    final t = Iso.tileAt(scene);
+    if (!rules.isOccupied(t.x, t.y)) return null;
+    final hit = pickAt(scene);
+    bool covers(MapItem i) => switch (i) {
+          final Building b => b.occupies(t.x, t.y),
+          final Farm f => f.occupies(t.x, t.y),
+          final Prop p => p.x == t.x && p.y == t.y,
+        };
+    if (hit != null && covers(hit)) return hit;
+    for (final i in [...city.props, ...city.buildings, ...city.farms]) {
+      if (covers(i)) return i;
+    }
+    return null;
+  }
+
   void tapAt(Offset scene) {
     if (_pickFirstTools.contains(toolId) && toolId != ToolId.select) {
-      final item = pickAt(scene);
+      final item = _itemOnTile(scene);
       if (item != null) {
         select(item);
         return;
@@ -584,7 +775,7 @@ class EditorState extends ChangeNotifier
     final tile = Iso.tileAt(scene);
     if (_pickFirstTools.contains(toolId) &&
         toolId != ToolId.select &&
-        pickAt(scene) != null) {
+        _itemOnTile(scene) != null) {
       // arrastar algo existente move, com qualquer ferramenta de colocar
       final select = _tools[ToolId.select]!;
       if (select.onDragStart(this, scene, tile)) {

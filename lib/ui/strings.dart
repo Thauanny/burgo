@@ -3,7 +3,7 @@ import '../editor/tool.dart';
 
 /// Todos os textos da interface (pt-BR) em um só lugar, para facilitar outros idiomas.
 abstract final class Strings {
-  static const appTitle = 'Burgo — Gerador de Cidades';
+  static const appTitle = 'Burgo — Gerador de cidades e masmorras para RPG';
   static const brand = 'Burgo';
   static const tagline = 'Gerador de cidades para RPG, jogos e livros';
   static const rpgSystem = 'Sistema de RPG';
@@ -111,9 +111,11 @@ abstract final class Strings {
   static const removeProp = 'Remover objeto';
   static const clickToPlace = 'Clique no mapa para posicionar.';
   static const help = 'Arraste para mover o mapa · scroll ou pinça = zoom\n'
-      'Clique em algo que já existe (construção, fazenda, objeto) para mover e editar.\n'
-      'Selecionar: toque e arraste construções e objetos.\n'
-      'Ruas/Área especial: toque ou arraste para pintar e apagar.';
+      'Mover: clique num item para ver as opções dele (nada sai do lugar).\n'
+      'Selecionar: arraste construções, objetos e personagens para outro lugar.\n'
+      'Ruas, água, muros e área especial: toque ou arraste para pintar; comece num trecho '
+      'já pintado para apagar.\n'
+      'Ctrl/⌘+Z desfaz · Ctrl/⌘+Shift+Z refaz.';
 
   static String generateZone(String zone) => 'Gerar $zone';
 
@@ -283,7 +285,7 @@ abstract final class Strings {
         PropType.bush => 'Arbusto',
         PropType.well => 'Poço',
         PropType.fountain => 'Fonte',
-        PropType.stall => 'Barraca',
+        PropType.stall => 'Barraca de feira',
         PropType.lamp => 'Poste',
         PropType.anomaly => 'Anomalia',
         PropType.cow => 'Vaca',
@@ -365,6 +367,8 @@ abstract final class Strings {
         PropType.mWolf => 'Lobo atroz',
         PropType.mLefeu => 'Lefeu',
         PropType.campfire => 'Fogueira',
+        PropType.fence => 'Cerca',
+        PropType.hedge => 'Sebe (cerca viva)',
         PropType.buccaneer => 'Bucaneiro',
         PropType.knight => 'Cavaleiro',
         PropType.raceKliren => 'Kliren',

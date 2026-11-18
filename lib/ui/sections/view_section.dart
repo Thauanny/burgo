@@ -25,6 +25,29 @@ class ViewSection extends StatelessWidget {
         value: editor.animationsEnabled,
         onChanged: editor.setAnimations,
       ),
+      if (editor.animationsEnabled) ...[
+        SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 16),
+          title: const Text('Pessoas andam'),
+          value: editor.animatePeople,
+          onChanged: editor.setAnimatePeople,
+        ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 16),
+          title: const Text('Monstros andam'),
+          value: editor.animateMonsters,
+          onChanged: editor.setAnimateMonsters,
+        ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 16),
+          title: const Text('Animais andam'),
+          value: editor.animateAnimals,
+          onChanged: editor.setAnimateAnimals,
+        ),
+      ],
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: const Text(Strings.scaleBar),

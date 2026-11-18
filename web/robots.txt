@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://thauanny.github.io/burgo/sitemap.xml

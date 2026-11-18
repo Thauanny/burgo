@@ -21,6 +21,14 @@ final class ItemPreview extends PlacementPreview {
   final bool isValid;
 }
 
+/// Fantasma de um trecho de muro no tile ([kind] 0 = muralha, 1 = paliçada, 2 = muro baixo),
+/// já ligado aos muros vizinhos.
+final class WallPreview extends PlacementPreview {
+  const WallPreview(this.x, this.y, this.kind, {required this.isValid});
+  final int x, y, kind;
+  final bool isValid;
+}
+
 /// Círculo do raio de ação de uma área especial a ser colocada.
 final class RadiusPreview extends PlacementPreview {
   const RadiusPreview(this.x, this.y, this.radius);

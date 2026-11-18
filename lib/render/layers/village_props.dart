@@ -8,10 +8,6 @@ import 'prop_renderer.dart';
 
 /// Objetos de vila e fantasia: caixotes, barris, feno, carroça, estandartes, estátuas, lápides.
 final Map<PropType, PropDrawer> villageDrawers = {
-  PropType.crate: _crate,
-  PropType.barrel: _barrel,
-  PropType.hay: _hay,
-  PropType.cart: _cart,
   PropType.banner: _banner,
   PropType.statue: _statue,
   PropType.grave: _grave,
@@ -28,52 +24,6 @@ final Map<PropType, PropDrawer> villageDrawers = {
   PropType.eclipse: _eclipse,
   PropType.ruin: _ruin,
 };
-
-void _crate(PropContext c) {
-  c.shadowOval(c.o, 30, 15);
-  const wood = Color(0xFFC9A074);
-  c.box(-.2, -.2, .4, .4, 0, 14, wood);
-  c.box(.02, -.1, .26, .26, 14, 22, shade(wood, -.05));
-  c.cv.drawLine(
-      c.at(-.2, .2, 3), c.at(.2, .2, 11), c.stroke(shade(wood, -.3), 1.2));
-}
-
-void _barrel(PropContext c) {
-  c.shadowOval(c.o, 22, 11);
-  cylinder(c.cv, c.cx, c.cy, .17, 0, 17, const Color(0xFF9A6B45));
-  for (final z in [4.0, 12.0]) {
-    final p = c.at(0, 0, z);
-    c.cv.drawOval(Rect.fromCenter(center: p, width: 21, height: 9),
-        c.stroke(const Color(0xFF5A4636), 1.4));
-  }
-}
-
-void _hay(PropContext c) {
-  c.shadowOval(c.o, 30, 14);
-  cylinder(c.cv, c.cx, c.cy, .24, 0, 16, const Color(0xFFE6C260),
-      cap: true, capShade: .05);
-  final top = c.at(0, 0, 16);
-  c.cv.drawOval(Rect.fromCenter(center: top, width: 21, height: 9).deflate(3),
-      c.stroke(const Color(0xFFB8963F), 1));
-  c.cv.drawLine(
-      c.at(-.2, 0, 6), c.at(.2, 0, 6), c.stroke(const Color(0xFFB8963F), 1));
-}
-
-void _cart(PropContext c) {
-  c.shadowOval(c.o, 44, 20);
-  const wood = Color(0xFF9A6B45);
-  c.box(-.3, -.18, .6, .36, 8, 14, wood);
-  c.box(-.3, -.18, .6, .05, 14, 20, shade(wood, .05));
-  c.box(-.3, .13, .6, .05, 14, 20, shade(wood, .05));
-  for (final dy in [-.2, .2]) {
-    final p = c.at(-.05, dy, 8);
-    c.cv.drawCircle(p, 8, c.fill(const Color(0xFF6B4A33)));
-    c.cv.drawCircle(p, 8, c.stroke(const Color(0xFF3B2A1E), 1.4));
-    c.cv.drawCircle(p, 2, c.fill(const Color(0xFFC9A074)));
-  }
-  final h = c.at(.3, 0, 10);
-  c.cv.drawLine(h, h.translate(12, 6), c.stroke(wood, 2.4));
-}
 
 void _banner(PropContext c) {
   c.shadowOval(c.o, 14, 7);

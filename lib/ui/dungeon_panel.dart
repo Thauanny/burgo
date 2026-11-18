@@ -7,6 +7,7 @@ import 'editor_toolbar.dart';
 import 'retro/vintage.dart';
 import 'section_title.dart';
 import 'sections/floors_section.dart';
+import 'side_panel.dart' show PanelTabs;
 import 'strings.dart';
 
 /// Painel de um projeto de masmorra, nas mesmas três abas do painel da cidade:
@@ -61,11 +62,7 @@ class DungeonPanel extends StatelessWidget {
                   EditorToolbar(editor: editor),
                 ]),
               ),
-              const TabBar(tabs: [
-                Tab(icon: Icon(Icons.map_outlined), text: 'Mapa'),
-                Tab(icon: Icon(Icons.edit_outlined), text: 'Editar'),
-                Tab(icon: Icon(Icons.visibility_outlined), text: 'Exibir'),
-              ]),
+              const PanelTabs(),
               Expanded(
                 child: TabBarView(children: [
                   _page(_mapTab(context)),

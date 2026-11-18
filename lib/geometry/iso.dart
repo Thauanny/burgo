@@ -271,12 +271,13 @@ abstract final class Iso {
   static double _depthOf(MapItem item) => isTopDown
       ? switch (item) {
           final Building b => b.y + b.depth + (b.x + b.width) * .001,
-          final Farm f => f.y + f.depth - .6 + f.x * .001,
+          // plantação é plana: vai pela beira de trás (o que está ao lado ou à frente fica por cima)
+          final Farm f => f.y + .1 + f.x * .001,
           final Prop p => p.y + .6 + p.x * .001,
         }
       : switch (item) {
           final Building b => (b.x + b.width + b.y + b.depth).toDouble(),
-          final Farm f => (f.x + f.width + f.y + f.depth) - 1.5,
+          final Farm f => (f.x + f.y) + .5,
           final Prop p => (p.x + p.y + 2).toDouble(),
         };
 

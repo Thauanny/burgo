@@ -43,6 +43,11 @@ abstract interface class SceneView {
   /// Segundos desde o início, para animações.
   double get time;
 
+  /// Pessoas, monstros e animais andam (ou ficam parados no seu tile).
+  bool get animatePeople;
+  bool get animateMonsters;
+  bool get animateAnimals;
+
   /// Pré-visualização da ferramenta ativa sob o cursor, se houver.
   PlacementPreview? get preview;
 }

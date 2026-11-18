@@ -62,6 +62,8 @@ Map<String, dynamic> cityToJson(City c) => {
         'zone': TileGridCodec.encode(c.zoneBrush),
         'water': TileGridCodec.encode(c.water),
         'walls': TileGridCodec.encode(c.walls),
+        'palisade': TileGridCodec.encode(c.palisade),
+        'lowWall': TileGridCodec.encode(c.lowWall),
         'dirt': TileGridCodec.encode(c.dirt),
       },
       'buildings': [
@@ -100,6 +102,7 @@ Map<String, dynamic> cityToJson(City c) => {
             'y': p.y,
             'type': p.type.name,
             if (p.race != null) 'race': p.race!.name,
+            if (p.roam != null) 'roam': p.roam,
           },
       ],
     };
@@ -136,6 +139,8 @@ City cityFromJson(Map<String, dynamic> j) {
   grid('zone', c.zoneBrush);
   grid('water', c.water);
   grid('walls', c.walls);
+  grid('palisade', c.palisade);
+  grid('lowWall', c.lowWall);
   grid('dirt', c.dirt);
   for (final b
       in (j['buildings'] as List? ?? const []).cast<Map<String, dynamic>>()) {
@@ -171,7 +176,8 @@ City cityFromJson(Map<String, dynamic> j) {
         x: _i(p['x']),
         y: _i(p['y']),
         type: _enum(PropType.values, p['type'], 'Objeto'),
-        race: p['race'] == null ? null : _enum(PropType.values, p['race'], 'Raça')));
+        race: p['race'] == null ? null : _enum(PropType.values, p['race'], 'Raça'),
+        roam: (p['roam'] as num?)?.toInt()));
   }
   c.kmPerTile =
       ((j['kmPerTile'] as num?)?.toDouble() ?? 1).clamp(.001, 1000).toDouble();

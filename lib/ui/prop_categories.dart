@@ -4,7 +4,8 @@ import '../domain/city_types.dart';
 enum PropGroup {
   nature('Natureza e relevo'),
   village('Vila, rua e praça'),
-  country('Campo e água'),
+  farm('Cercas e campo'),
+  water('Água e porto'),
   tech('Tecnologia'),
   animals('Animais'),
   special('Área especial e magia'),
@@ -16,7 +17,11 @@ enum PropGroup {
   const PropGroup(this.label);
   final String label;
 
-  static const objectGroups = [nature, village, country, tech, animals, special];
+  /// Grupos da ferramenta Objetos (o que é de fazenda fica na ferramenta Fazenda).
+  static const objectGroups = [nature, village, water, tech, special];
+
+  /// Grupos da ferramenta Fazenda, além das plantações.
+  static const farmGroups = [farm, animals];
   /// Grupos da ferramenta Personagens: a raça é escolhida à parte, combinada com a classe.
   static const characterGroups = [classes, folk, monsters];
 
@@ -42,13 +47,14 @@ enum PropGroup {
       PropType.dog ||
       PropType.horse =>
         animals,
+      PropType.fence ||
+      PropType.hedge ||
       PropType.hay ||
       PropType.scarecrow ||
       PropType.tractor ||
-      PropType.cart ||
-      PropType.dock ||
-      PropType.boat =>
-        country,
+      PropType.cart =>
+        farm,
+      PropType.dock || PropType.boat => water,
       PropType.robot ||
       PropType.powerPole ||
       PropType.dish ||

@@ -321,6 +321,8 @@ void main() {
 
     test('o controle de raio redimensiona a única área do mapa', () {
       final e = _editor('t20');
+      // a área nasce só nas cidades livres
+      e.setSettlement(e.system.art.settlements.firstWhere((s) => s.wildZone == true));
       for (final z in [...e.city.zoneSources].skip(1)) {
         e.removeZoneSource(z.id);
       }

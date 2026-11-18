@@ -1,38 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  <!-- Trocado pelo valor de `--base-href` no build (no GitHub Pages: /burgo/). -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- iOS meta tags & icons -->
+  <title>Burgo — Gerador de cidades e masmorras para RPG (Tormenta20, D&amp;D 5e, Tales from the Loop)</title>
+  <meta name="description" content="Burgo é um gerador e editor gratuito de mapas isométricos para RPG: cidades, vilas, fazendas e masmorras para Tormenta20, D&amp;D 5e, Tales from the Loop e fantasia genérica. Gere, edite, pinte e exporte em PNG direto no navegador.">
+  <meta name="keywords" content="gerador de cidades RPG, gerador de mapas RPG, mapa isométrico, gerador de masmorras, dungeon generator, city generator, Tormenta20, Tormenta 20 mapa, Valkaria mapa, D&amp;D 5e mapa, Waterdeep mapa, Tales from the Loop, mapa de cidade medieval, criador de mapas, RPG de mesa, worldbuilding">
+  <meta name="author" content="Thauanny Ramos">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#F3EBDA">
+  <link rel="canonical" href="https://thauanny.github.io/burgo/">
+
+  <!-- Compartilhamento (WhatsApp, Discord, redes sociais) -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Burgo">
+  <meta property="og:title" content="Burgo — Gerador de cidades e masmorras para RPG">
+  <meta property="og:description" content="Gere e edite cidades, vilas, fazendas e masmorras isométricas para Tormenta20, D&amp;D 5e e Tales from the Loop. Grátis, no navegador.">
+  <meta property="og:url" content="https://thauanny.github.io/burgo/">
+  <meta property="og:image" content="https://thauanny.github.io/burgo/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Ícone do Burgo ao lado de uma cidade isométrica gerada pelo app">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Burgo — Gerador de cidades e masmorras para RPG">
+  <meta name="twitter:description" content="Mapas isométricos para Tormenta20, D&amp;D 5e e Tales from the Loop, gerados e editados no navegador.">
+  <meta name="twitter:image" content="https://thauanny.github.io/burgo/icons/og-image.png">
+
+  <!-- Dados estruturados: o Google entende que é um aplicativo web gratuito -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Burgo",
+    "alternateName": "Burgo — gerador de cidades e masmorras para RPG",
+    "url": "https://thauanny.github.io/burgo/",
+    "image": "https://thauanny.github.io/burgo/icons/Icon-512.png",
+    "description": "Gerador e editor de mapas isométricos para RPG de mesa: cidades, vilas, fazendas e masmorras para Tormenta20, D&D 5e, Tales from the Loop e fantasia genérica.",
+    "applicationCategory": "GameApplication",
+    "genre": "RPG",
+    "operatingSystem": "Qualquer (navegador)",
+    "inLanguage": "pt-BR",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+    "author": { "@type": "Person", "name": "Thauanny Ramos" },
+    "codeRepository": "https://github.com/Thauanny/burgo"
+  }
+  </script>
+
+  <!-- iOS / atalhos -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="burgo">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Burgo">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>burgo</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png">
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #F3EBDA; }
+    /* Tela de carregamento: some quando o Flutter desenha o primeiro quadro */
+    #burgo-loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 18px; background: #F3EBDA; z-index: 10;
+      font-family: Georgia, 'Palatino Linotype', serif; color: #2B2A33;
+      transition: opacity .35s ease;
+    }
+    #burgo-loader.done { opacity: 0; pointer-events: none; }
+    #burgo-loader img { width: 132px; height: 132px; animation: burgo-bob 1.6s ease-in-out infinite; }
+    #burgo-loader .name { font-size: 34px; font-weight: 800; font-style: italic; color: #C8553D; letter-spacing: .5px; }
+    #burgo-loader .tagline { font: 15px 'Avenir Next', 'Segoe UI', Arial, sans-serif; color: #6E6A62; }
+    #burgo-loader .bar { width: 180px; height: 8px; border: 2px solid #2B2A33; border-radius: 6px; overflow: hidden; background: #FBF6EA; }
+    #burgo-loader .bar span { display: block; height: 100%; width: 40%; background: #E0A93B; border-radius: 4px; animation: burgo-paint 1.3s ease-in-out infinite; }
+    @keyframes burgo-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+    @keyframes burgo-paint { 0% { transform: translateX(-110%) } 100% { transform: translateX(280%) } }
+    /* Conteúdo descritivo para buscadores e leitores de tela (o app em si é desenhado num canvas) */
+    .burgo-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  </style>
 </head>
 <body>
+  <div id="burgo-loader" role="status" aria-live="polite">
+    <img src="icons/Icon-512.png" alt="Ícone do Burgo: um bloco isométrico com casa, torre e um pincel">
+    <div class="name">Burgo</div>
+    <div class="bar"><span></span></div>
+    <div class="tagline">Pintando a sua cidade…</div>
+  </div>
+
+  <main class="burgo-sr">
+    <h1>Burgo — gerador e editor de cidades e masmorras isométricas para RPG</h1>
+    <p>O Burgo gera mapas isométricos prontos para a mesa de RPG: cidades, vilas, fazendas,
+      florestas e masmorras, no estilo de cada cenário. Tudo roda no navegador, de graça.</p>
+    <h2>Cenários</h2>
+    <ul>
+      <li>Tormenta20: Valkaria, Vectora, Malpetrim, Smokestone, Sambúrdia, Nitamu-ra, Lenórienn, Norba, Pondsmânia e cidades livres com Área da Tormenta.</li>
+      <li>Dungeons &amp; Dragons 5e: Waterdeep, Baldur's Gate, Neverwinter, Phandalin, Bryn Shander e cidades livres com magia selvagem.</li>
+      <li>Tales from the Loop: ilhas Mälaren, Boulder City, Mercer, fazendas e a instalação do Loop.</li>
+      <li>Fantasia genérica para qualquer mesa.</li>
+    </ul>
+    <h2>Recursos</h2>
+    <ul>
+      <li>Geração procedural com semente reproduzível e mapas oficiais recriados a partir dos mapas publicados.</li>
+      <li>Editor completo: construções, ruas, praças, estradas de terra, água, muralhas, paliçadas, cercas, plantações, objetos e personagens.</li>
+      <li>Personagens de cada sistema (classes e raças), monstros e animais que andam pelo mapa, com raio de movimento ajustável.</li>
+      <li>Controle de população, com raças seguindo a lore de cada cidade.</li>
+      <li>Masmorras com cavernas, escuridão, tochas e monstros do cenário, ligadas à entrada na cidade.</li>
+      <li>Vista isométrica ou de cima, giro do mapa, desfazer e refazer, salvar e abrir projetos, exportar imagem PNG.</li>
+    </ul>
+    <p>Código aberto: <a href="https://github.com/Thauanny/burgo">github.com/Thauanny/burgo</a>.</p>
+  </main>
+
+  <noscript>
+    <p>O Burgo precisa de JavaScript ativado para gerar e editar os mapas.</p>
+  </noscript>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var l = document.getElementById('burgo-loader');
+      if (!l) return;
+      l.classList.add('done');
+      setTimeout(function () { l.remove(); }, 400);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

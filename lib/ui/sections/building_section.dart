@@ -5,6 +5,7 @@ import '../../domain/era.dart';
 import '../../domain/map_item.dart';
 import '../../editor/editor_state.dart';
 import '../../render/layers/annotation_layer.dart' show formatKm;
+import '../../render/layers/entities_layer.dart' show EntitiesLayer;
 import '../retro/vintage.dart';
 import '../section_title.dart';
 import '../strings.dart';
@@ -55,8 +56,8 @@ class BuildingSection extends StatelessWidget {
             : Strings.propFor(sel.type, editor.system.id)),
         Wrap(spacing: 8, runSpacing: 4, children: [
           for (final t in (Figures.isFigure(sel.type)
-              ? editor.system.availableCharacters
-              : editor.system.availableObjects))
+              ? editor.availableCharacters
+              : editor.availableObjects))
             PaperChip(
               label: Text(t == PropType.anomaly
                   ? editor.system.anomalyName
@@ -65,8 +66,23 @@ class BuildingSection extends StatelessWidget {
               onSelected: (_) => editor.changeSelectedPropType(t),
             ),
         ]),
-        if (Figures.isPerson(sel.type) && editor.system.availableRaces.isNotEmpty)
+        if (Figures.isPerson(sel.type) && editor.availableRaces.isNotEmpty)
           ...ToolsSection.raceChips(editor, sel.race, editor.setSelectedRace),
+        if (EntitiesLayer.walks(sel.type)) ...[
+          SubLabel(sel.roamRadius == 0
+              ? 'Área de movimento: parado no lugar'
+              : 'Área de movimento: até ${sel.roamRadius} ${sel.roamRadius == 1 ? 'bloco' : 'blocos'} em cada sentido'),
+          Slider(
+            value: sel.roamRadius.toDouble(),
+            min: 0,
+            max: 12,
+            divisions: 12,
+            label: '${sel.roamRadius}',
+            onChanged: (v) => editor.setSelectedRoam(v.round()),
+          ),
+          Text('A área aparece em amarelo no mapa. 0 = fica parado.',
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: editor.deleteSelected,
@@ -76,6 +92,32 @@ class BuildingSection extends StatelessWidget {
       ],
     ]);
   }
+
+  /// Tipos de construção agrupados (cada tipo em um só grupo; os que sobrarem vão em "Outros").
+  static final List<(String, List<BuildingKind>)> _kindGroups = () {
+    const groups = <(String, List<BuildingKind>)>[
+      ('Moradias', [
+        BuildingKind.cottage, BuildingKind.house, BuildingKind.timber, BuildingKind.tallHouse,
+        BuildingKind.townHouse, BuildingKind.manor, BuildingKind.eastHouse, BuildingKind.elfHouse,
+        BuildingKind.mushroom, BuildingKind.faluCabin, BuildingKind.modern, BuildingKind.block,
+        BuildingKind.skyscraper,
+      ]),
+      ('Comércio e ofícios', [BuildingKind.workshop, BuildingKind.saloon, BuildingKind.warehouse, BuildingKind.lab]),
+      ('Campo', [
+        BuildingKind.farmhouse, BuildingKind.barn, BuildingKind.gambrel, BuildingKind.ranch,
+        BuildingKind.silo, BuildingKind.windmill, BuildingKind.greenhouse,
+      ]),
+      ('Templos', [BuildingKind.temple, BuildingKind.church, BuildingKind.pagoda]),
+      ('Poder e defesa', [BuildingKind.castle, BuildingKind.tower, BuildingKind.elfTower]),
+      ('Marcos e grandes obras', [
+        BuildingKind.colossus, BuildingKind.arena, BuildingKind.elfTree, BuildingKind.lighthouse,
+        BuildingKind.coolingTower, BuildingKind.dam,
+      ]),
+    ];
+    final used = {for (final (_, ks) in groups) ...ks};
+    final rest = [for (final k in BuildingKind.values) if (!used.contains(k)) k];
+    return [...groups, if (rest.isNotEmpty) ('Outros', rest)];
+  }();
 
   List<Widget> _buildingEditor(Building b) {
     final isDraft = editor.isEditingDraft;
@@ -96,18 +138,19 @@ class BuildingSection extends StatelessWidget {
           decoration: const InputDecoration(labelText: Strings.name),
           onChanged: (v) => editor.editBuilding((e) => e.copyWith(name: v)),
         ),
-      const Text(Strings.buildingType,
-          style: TextStyle(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 4),
-      Wrap(spacing: 6, runSpacing: 4, children: [
-        for (final k in BuildingKind.values)
-          if (EraRules.allowsBuilding(k, editor.era))
-            PaperChip(
-                label: Text(Strings.buildingKind(k)),
-                selected: b.kind == k,
-                onSelected: (_) =>
-                    editor.editBuilding((e) => e.copyWith(kind: k))),
-      ]),
+      // tipos de construção da época do lugar, em grupos
+      for (final (group, kinds) in _kindGroups)
+        if (kinds.any((k) => EraRules.allowsBuilding(k, editor.era))) ...[
+          SubLabel(group, top: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final k in kinds)
+              if (EraRules.allowsBuilding(k, editor.era))
+                PaperChip(
+                    label: Text(Strings.buildingKind(k)),
+                    selected: b.kind == k,
+                    onSelected: (_) => editor.editBuilding((e) => e.copyWith(kind: k))),
+          ]),
+        ],
       const SizedBox(height: 6),
       LabeledSlider(
         label: Strings.floors,

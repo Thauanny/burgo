@@ -62,6 +62,7 @@ class Route {
     double pause = 1.6,
     (int, int)? stayNear,
     int radius = 3,
+    double? startAt,
   }) {
     final r = Random(seed);
     final pts = <(int, int)>[start];
@@ -74,7 +75,7 @@ class Route {
         final nx = x + dx, ny = y + dy;
         if (!canEnter(nx, ny)) continue;
         if (prev != null && prev.$1 == nx && prev.$2 == ny) continue;
-        if (stayNear != null && ((nx - stayNear.$1).abs() > radius || (ny - stayNear.$2).abs() > radius)) continue;
+        if (stayNear != null && (nx - stayNear.$1).abs() + (ny - stayNear.$2).abs() > radius) continue;
         options.add((nx, ny));
       }
       if (options.isEmpty) break;
@@ -90,8 +91,11 @@ class Route {
       (x, y) = next;
       pts.add(next);
     }
+    final period = 2 * (pts.length - 1) + 2 * pause;
+    // com [startAt], no instante dado o ser está no tile de partida (não aparece longe dele)
+    final phase = startAt == null ? r.nextDouble() * period : (-startAt * speed) % period;
     return Route([for (final (px, py) in pts) Offset(px + .5, py + .5)],
-        speed: speed, phase: r.nextDouble() * (2 * (pts.length - 1) + 2 * pause), pause: pause);
+        speed: speed, phase: phase, pause: pause);
   }
 
   /// Parado no tile (só o balanço do desenhista).

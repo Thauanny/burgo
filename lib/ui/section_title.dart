@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'panel_card.dart';
 import 'retro/vintage.dart';
 
 /// Título de grupo em caixa-alta espaçada (terracota), com um fio de tinta ao lado.
@@ -8,7 +9,7 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 26, bottom: 10),
+        padding: EdgeInsets.only(top: PanelCard.inCard(context) ? 8 : 26, bottom: 10),
         child: Row(children: [
           Text(text.toUpperCase(),
               style: Theme.of(context).textTheme.titleSmall),

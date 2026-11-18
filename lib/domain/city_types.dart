@@ -138,6 +138,9 @@ enum PropType {
   mRat,
   /// Fogueira (acampamento de monstros, viajantes).
   campfire,
+  /// Cerca de madeira e sebe viva: liga-se às vizinhas e às muralhas (pintada arrastando).
+  fence,
+  hedge,
 }
 
 /// Famílias de construção. Cada uma tem desenho, tamanho e andares próprios.

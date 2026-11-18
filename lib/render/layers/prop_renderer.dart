@@ -10,7 +10,9 @@ import '../sprite_cache.dart';
 import 'animal_props.dart';
 import 'anomaly_props.dart';
 import 'farm_props.dart';
+import 'fence_props.dart';
 import 'figure_props.dart';
+import 'market_props.dart';
 import 'tech_props.dart';
 import 'village_props.dart';
 import 'zone_contamination.dart';
@@ -24,7 +26,8 @@ class PropContext {
       this.people = const [],
       Offset? pos,
       double? face,
-      this.idle = false})
+      this.idle = false,
+      this.link})
       : id = p.id,
         o = Iso.pt(pos?.dx ?? p.x + .5, pos?.dy ?? p.y + .5),
         cx = pos?.dx ?? p.x + .5,
@@ -45,7 +48,8 @@ class PropContext {
       this.people = const [],
       this.race,
       this.face = 1,
-      this.idle = false})
+      this.idle = false,
+      this.link})
       : id = variant,
         o = Iso.pt(.5, .5),
         cx = .5,
@@ -73,6 +77,9 @@ class PropContext {
   /// Para onde o boneco olha na tela (+1 direita, -1 esquerda) e se está parado.
   final double face;
   final bool idle;
+
+  /// Para cercas: há cerca (ou muro) no tile vizinho (dx, dy) da vista?
+  final bool Function(int dx, int dy)? link;
 
   /// Está gravando um quadro de sprite (sem passeio pelo tile; a pose vem de [cycle]).
   final bool sprite;
@@ -137,7 +144,6 @@ final Map<PropType, PropDrawer> _basicDrawers = {
   PropType.bush: drawBush,
   PropType.well: drawWell,
   PropType.fountain: drawFountain,
-  PropType.stall: drawStall,
   PropType.lamp: drawLamp,
 };
 
@@ -149,6 +155,8 @@ final Map<PropType, PropDrawer> propDrawers = {
   ...techDrawers,
   ...farmDrawers,
   ...figureDrawers,
+  ...fenceDrawers,
+  ...marketDrawers,
   PropType.anomaly: drawAnomaly,
 };
 
@@ -174,7 +182,8 @@ class PropRenderer {
       double scale = 1,
       Offset? pos,
       double? face,
-      bool idle = false}) {
+      bool idle = false,
+      bool Function(int dx, int dy)? link}) {
     final cache = sprites;
     if (cache != null && SpriteCache.handles(p.type, contamination: contamination)) {
       cache.paint(cv, p,
@@ -190,13 +199,35 @@ class PropRenderer {
       return;
     }
     final ctx = PropContext(cv, p,
-        zoneColor: zoneColor, time: time, anomaly: anomaly, people: people, pos: pos, face: face, idle: idle);
+        zoneColor: zoneColor, time: time, anomaly: anomaly, people: people, pos: pos, face: face, idle: idle, link: link);
     final normal = propDrawers[p.type]!;
     if (contamination != null && isContaminable(p.type, contamination)) {
       paintContaminated(ctx, p.type, contamination, normal);
     } else {
       normal(ctx);
     }
+  }
+}
+
+/// Contorno exato da copa de uma árvore (o que cobre quem passa atrás dela), igual ao
+/// desenho de [drawTree]/[drawSakura]; nulo para os outros tipos.
+Path? canopyOutline(Prop p) {
+  final o = Iso.pt(p.x + .5, p.y + .5);
+  final hs = tileHash(p.id, p.id * 7 + 3);
+  Path union(List<Path> ps) => ps.reduce((a, b) => Path.combine(PathOperation.union, a, b));
+  switch (p.type) {
+    case PropType.tree:
+      final cc = o.translate(0, -31);
+      return union([_canopy(cc.translate(5, 3), 15, 13, hs + 3, lobes: 6), _canopy(cc, 17, 15, hs)]);
+    case PropType.sakura:
+      final cc = o.translate(0, -29);
+      return union([
+        _canopy(cc.translate(-8, 3), 10, 8, hs + 5, lobes: 5),
+        _canopy(cc.translate(8, 4), 10, 8, hs + 6, lobes: 5),
+        _canopy(cc, 15, 12.5, hs, lobes: 6),
+      ]);
+    default:
+      return null;
   }
 }
 
@@ -384,22 +415,6 @@ void drawFountain(PropContext ctx) {
   for (final dxy in const [Offset(0, -34), Offset(-4, -30), Offset(4, -30)]) {
     cv.drawCircle(o + dxy, 2, f(const Color(0xFFE9FBFF)));
   }
-}
-
-void drawStall(PropContext ctx) {
-  final cv = ctx.cv;
-  final o = ctx.o;
-  final cx = ctx.cx;
-  final cy = ctx.cy;
-  final hs = ctx.hs;
-  final shadow = ctx.shadow;
-  cv.drawOval(Rect.fromCenter(center: o.translate(4, 2), width: 40, height: 20),
-      shadow);
-  drawBox(cv, cx - .4, cy - .3, .8, .6, 0, 12, const Color(0xFFC9A074));
-  drawBox(cv, cx - .36, cy - .26, .06, .06, 12, 24, const Color(0xFF8A5E3C));
-  drawBox(cv, cx + .3, cy - .26, .06, .06, 12, 24, const Color(0xFF8A5E3C));
-  drawBox(cv, cx - .48, cy - .38, .96, .76, 22, 26,
-      (hs % 2 == 0) ? const Color(0xFFD9534F) : const Color(0xFF4F8FD9));
 }
 
 void drawLamp(PropContext ctx) {

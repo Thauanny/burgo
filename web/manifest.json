@@ -1,12 +1,14 @@
 {
-    "name": "burgo",
-    "short_name": "burgo",
+    "name": "Burgo — Gerador de cidades e masmorras para RPG",
+    "short_name": "Burgo",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F3EBDA",
+    "theme_color": "#F3EBDA",
+    "description": "Gerador e editor de mapas isométricos para RPG: cidades, vilas, fazendas e masmorras para Tormenta20, D&D 5e e Tales from the Loop.",
+    "lang": "pt-BR",
+    "categories": ["games", "entertainment", "utilities"],
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

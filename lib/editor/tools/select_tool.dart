@@ -39,6 +39,12 @@ class SelectTool extends Tool {
 }
 
 /// Mover: arrastar sempre move o mapa e clicar não altera nada.
+/// Mover: arrastar move o mapa; um clique só seleciona o item (para ver as opções dele),
+/// sem tirar nada do lugar.
 class PanTool extends Tool {
   PanTool() : super(ToolId.pan);
+
+  @override
+  void onTap(ToolHost host, Offset scene, Point<int> tile) =>
+      host.select(host.pickAt(scene));
 }

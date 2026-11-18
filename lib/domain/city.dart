@@ -22,7 +22,9 @@ class City {
         zoneBrush = TileGrid(size),
         water = TileGrid(size),
         dirt = TileGrid(size),
-        walls = TileGrid(size);
+        walls = TileGrid(size),
+        palisade = TileGrid(size),
+        lowWall = TileGrid(size);
 
   String name;
   final int seed;
@@ -52,6 +54,10 @@ class City {
 
   /// Estradas de terra (subconjunto de [road]): estradinhas do campo.
   final TileGrid dirt;
+
+  /// Tipo do muro em cada tile (subconjuntos de [walls]): paliçada de troncos e muro baixo
+  /// de pedra. O resto é muralha de pedra com torres.
+  final TileGrid palisade, lowWall;
 
   /// Tipo de assentamento (id) e composição usados na geração.
   String settlementId = '';
@@ -235,7 +241,7 @@ class City {
       dirt.version;
 
   /// Muda quando muros mudam (desenhados junto com as construções).
-  int get wallsVersion => walls.version + road.version;
+  int get wallsVersion => walls.version + road.version + palisade.version + lowWall.version;
 
   List<Building> get buildings => List.unmodifiable(_buildings);
   List<Prop> get props => List.unmodifiable(_props);
@@ -294,6 +300,8 @@ class City {
     move(water, copy.water);
     move(walls, copy.walls);
     move(dirt, copy.dirt);
+    move(palisade, copy.palisade);
+    move(lowWall, copy.lowWall);
     for (final item in [..._buildings, ..._farms, ..._props]) {
       copy.add(item.movedTo(item.x + dx, item.y + dy));
     }

@@ -23,6 +23,13 @@ enum ToolId {
   erase
 }
 
+/// Tipos de rua da ferramenta Ruas: calçada (pedra/asfalto do cenário), estrada de terra e praça.
+enum RoadKind { paved, dirt, plaza }
+
+/// Tipos de muro da ferramenta Muros: muralha de pedra (com torres), paliçada de troncos e
+/// muro baixo de pedra.
+enum WallKind { stone, palisade, low, fence, hedge }
+
 /// O que uma ferramenta precisa do editor (interface mínima, ISP).
 abstract interface class ToolHost {
   City get city;
@@ -36,6 +43,17 @@ abstract interface class ToolHost {
 
   /// Raça da pessoa a colocar (ignorada para monstros).
   PropType get characterRace;
+
+  /// Tipo de rua e de muro escolhidos nas ferramentas Ruas e Muros.
+  RoadKind get roadKind;
+  WallKind get wallKind;
+
+  /// Objeto de fazenda escolhido na ferramenta Fazenda (cerca, feno, animal...); nulo =
+  /// plantação.
+  PropType? get farmProp;
+
+  /// Raio de movimento com que nascem os seres vivos postos à mão (nulo = o padrão).
+  int? roamDefault(PropType type);
   MapItem? get selected;
   MapItem? pickAt(Offset scene);
   void select(MapItem? item);

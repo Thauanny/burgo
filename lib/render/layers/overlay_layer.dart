@@ -24,6 +24,14 @@ class OverlayLayer {
         _tile(cv, p);
       case final ItemPreview p:
         _ghost(cv, p, scene);
+      case final WallPreview p:
+        final tile = Iso.diamond(p.x.toDouble(), p.y.toDouble(), 1, 1);
+        fillPoly(cv, tile, p.isValid ? _validFill : _invalidFill);
+        final c = Iso.pt(p.x + .5, p.y + .5, 20);
+        cv.saveLayer(Rect.fromCenter(center: c, width: 220, height: 220),
+            Paint()..color = const Color.fromARGB(170, 255, 255, 255));
+        entities.paintWallGhost(cv, p.x, p.y, p.kind, scene);
+        cv.restore();
       case RadiusPreview _:
         break; // o anel do raio é desenhado pela camada de anotações
     }
@@ -46,6 +54,25 @@ class OverlayLayer {
       _ => Iso.diamond(item.x.toDouble(), item.y.toDouble(), 1, 1),
     };
     cv.drawPath(path, _outline(_selectionColor, 3));
+    if (item is Prop && EntitiesLayer.walks(item.type)) _roam(cv, item, scene);
+  }
+
+  /// Área em que o ser vivo selecionado pode andar: losango de raio [Prop.roamRadius].
+  void _roam(Canvas cv, Prop p, SceneView scene) {
+    final r = p.roamRadius;
+    if (r <= 0) return;
+    final fill = Paint()..color = const Color.fromRGBO(255, 200, 61, .16);
+    final edge = _outline(const Color.fromRGBO(255, 200, 61, .85), 1.4);
+    for (var dx = -r; dx <= r; dx++) {
+      for (var dy = -r; dy <= r; dy++) {
+        if (dx.abs() + dy.abs() > r) continue;
+        final x = p.x + dx, y = p.y + dy;
+        if (!scene.city.inBounds(x, y)) continue;
+        final tile = Iso.diamond(x.toDouble(), y.toDouble(), 1, 1);
+        cv.drawPath(tile, fill);
+        if (dx.abs() + dy.abs() == r) cv.drawPath(tile, edge);
+      }
+    }
   }
 
   void _tile(Canvas cv, TilePreview p) {

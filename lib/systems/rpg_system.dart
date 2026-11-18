@@ -56,11 +56,14 @@ class RpgSystem {
   /// Objetos da ferramenta Objetos: só os da época do cenário (o poste vira lanterna na Idade Média).
   /// Todos os objetos da época do cenário (os genéricos, como montanha, ruína e rocha,
   /// servem em qualquer sistema). Os do próprio sistema vêm primeiro na lista.
-  List<PropType> get availableProps => {
+  List<PropType> get availableProps => availablePropsFor(art.era);
+
+  /// Objetos de uma época (a do lugar: Smokestone é faroeste num cenário medieval).
+  List<PropType> availablePropsFor(Era era) => {
         for (final p in [...props, ...art.toolProps, ...PropType.values])
-          EraRules.adapt(p, art.era),
+          EraRules.adapt(p, era),
       }
-          .where((p) => EraRules.allowsProp(p, art.era))
+          .where((p) => EraRules.allowsProp(p, era))
           .where((p) => p != PropType.anomaly || hasZone)
           // bonecos: só as pessoas e os monstros do próprio cenário
           .where((p) =>

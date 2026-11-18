@@ -156,9 +156,10 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
           ),
         ),
       );
-      return Stack(children: [
+      // o mapa ocupa a área toda, com ou sem as setas (sem elas, o Stack encolhia a 0×0)
+      return Stack(fit: StackFit.expand, children: [
         Positioned.fill(child: map),
-        MapExpandArrows(editor: editor, area: size),
+        Positioned.fill(child: MapExpandArrows(editor: editor, area: size)),
         Positioned(
           left: 14,
           bottom: 72, // logo acima da barra de km

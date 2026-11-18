@@ -145,7 +145,7 @@ class _DungeonCanvasState extends State<DungeonCanvas>
           ),
         ),
       );
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         Positioned.fill(child: map),
         Positioned(
           left: 14,

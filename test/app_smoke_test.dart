@@ -42,6 +42,18 @@ void main() {
     await tester.pump();
     expect(editor.city.size, before + EditorState.expandStep);
 
+    // sem as setas, o mapa continua ocupando a área (antes encolhia a 0×0 e sumia)
+    final mapPaint = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is CityPainter);
+    final sizeWith = tester.getSize(mapPaint);
+    editor.setShowExpandArrows(false);
+    await tester.pump();
+    expect(find.byIcon(Icons.arrow_forward), findsNothing);
+    expect(tester.getSize(mapPaint), sizeWith);
+    expect(sizeWith.width, greaterThan(400));
+    expect(tester.takeException(), isNull);
+    editor.setShowExpandArrows(true);
+    await tester.pump();
+
     // desfazer pelo botão da barra
     await tester.tap(find.byIcon(Icons.undo));
     await tester.pump();

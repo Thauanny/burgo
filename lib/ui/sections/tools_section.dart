@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../../domain/city_types.dart';
 import '../../editor/editor_state.dart';
 import '../../editor/tool.dart';
+import '../asset_browser.dart';
 import '../prop_categories.dart';
 import '../retro/vintage.dart';
 import '../section_title.dart';
 import '../strings.dart';
+import '../thumbnails.dart';
+import '../tool_palette.dart';
 
 const _toolIcons = {
   ToolId.pan: Icons.open_with,
@@ -37,8 +40,7 @@ class ToolsSection extends StatelessWidget {
     ('Navegar', [ToolId.pan, ToolId.select]),
     ('Terreno', [ToolId.road, ToolId.water, ToolId.wall, ToolId.zone, ToolId.zoneSource]),
     ('Construir', [ToolId.build, ToolId.farm, ToolId.prop, ToolId.character]),
-    ('Anotar', [ToolId.marker, ToolId.ruler]),
-    ('Apagar', [ToolId.erase]),
+    ('Anotar e apagar', [ToolId.marker, ToolId.ruler, ToolId.erase]),
   ];
 
   @override
@@ -46,28 +48,31 @@ class ToolsSection extends StatelessWidget {
     final sys = editor.system;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (picker)
-      for (final (label, ids) in _groups) ...[
-        SubLabel(label, top: 6),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final id in ids)
-            if ((id != ToolId.zone && id != ToolId.zoneSource) || sys.hasZone)
-              PaperChip(
-                avatar: Icon(_toolIcons[id], size: 18),
-                label: Text(Strings.toolLabel(id, zoneName: sys.zoneName)),
-                selected: editor.toolId == id,
-                onSelected: (_) => editor.setTool(id),
+        ToolPalette<ToolId>(
+          groups: [
+            for (final (label, ids) in _groups)
+              (
+                label,
+                [
+                  for (final id in ids)
+                    if ((id != ToolId.zone && id != ToolId.zoneSource) || sys.hasZone)
+                      PaletteItem(id, _toolIcons[id]!, Strings.toolLabel(id, zoneName: sys.zoneName)),
+                ]
               ),
-        ]),
-      ],
+          ],
+          selected: editor.toolId,
+          onPick: editor.setTool,
+        ),
       if (options) ..._toolOptions(),
       if (options && editor.toolId == ToolId.prop)
-        ..._grouped(PropGroup.objectGroups, editor.availableObjects, editor.propType,
-            editor.setPropType),
+        objectBrowser(editor, PropGroup.objectGroups, editor.availableObjects, editor.propType, editor.setPropType),
       if (options && editor.toolId == ToolId.character) ...[
-        ..._grouped(PropGroup.characterGroups, editor.availableCharacters,
-            editor.characterType, editor.setCharacterType),
         if (Figures.isPerson(editor.characterType) && editor.availableRaces.isNotEmpty)
           ...raceChips(editor, editor.characterRace, editor.setCharacterRace),
+        const SizedBox(height: 8),
+        objectBrowser(editor, PropGroup.characterGroups, editor.availableCharacters, editor.characterType,
+            editor.setCharacterType,
+            hint: 'Buscar personagem…', race: editor.characterRace),
       ],
     ]);
   }
@@ -97,15 +102,23 @@ class ToolsSection extends StatelessWidget {
           _hint('Arraste para pintar; comece num tile já pintado para apagar.'),
         ],
       ToolId.wall => [
-          chips<WallKind>('Tipo de muro', const [
+          chips<bool>('O que colocar', const [
+            (false, 'Trecho de muro', Icons.horizontal_rule),
+            (true, 'Portão', Icons.door_front_door),
+          ], editor.wallGate, editor.setWallGate),
+          chips<WallKind>(editor.wallGate ? 'Portão de qual muro?' : 'Tipo de muro', const [
             (WallKind.stone, 'Muralha de pedra', Icons.fort),
             (WallKind.palisade, 'Paliçada de madeira', Icons.fence),
             (WallKind.low, 'Muro baixo de pedra', Icons.horizontal_rule),
             (WallKind.fence, 'Cerca de madeira', Icons.fence),
             (WallKind.hedge, 'Sebe (cerca viva)', Icons.grass),
           ], editor.wallKind, editor.setWallKind),
-          _hint('Arraste para pintar; comece num trecho já pintado para apagar. Uma rua cruzando '
-              'a muralha vira portão; cercas e sebes se ligam entre si e aos muros.'),
+          _hint(editor.wallGate
+              ? 'Clique num trecho de muro (ou num tile livre) para pôr o portão do tipo escolhido: '
+                  'arco de pedra com grade, portão de madeira entre mourões, porteira do muro baixo, '
+                  'porteira de cerca ou arco da sebe. Clique de novo no portão para fechá-lo.'
+              : 'Arraste para pintar; comece num trecho já pintado para apagar. Uma rua cruzando '
+                  'a muralha também vira portão; cercas e sebes se ligam entre si e aos muros.'),
         ],
       ToolId.water => [_hint('Arraste para pintar rios e lagos; sobre uma rua vira ponte.')],
       ToolId.pan => [
@@ -124,40 +137,46 @@ class ToolsSection extends StatelessWidget {
             child: Text(text, style: Theme.of(context).textTheme.bodySmall),
           ));
 
+  /// Navegador de objetos ou personagens com miniaturas, busca e categorias.
+  static Widget objectBrowser(EditorState editor, List<PropGroup> groups, List<PropType> items, PropType? selected,
+      ValueChanged<PropType> onPick,
+      {String hint = 'Buscar objeto…', PropType? race}) {
+    final sys = editor.system;
+    String label(PropType p) => p == PropType.anomaly ? sys.anomalyName : Strings.propFor(p, sys.id);
+    return AssetBrowser(
+      items: items,
+      groups: groups,
+      selected: selected,
+      onPick: onPick,
+      label: label,
+      hint: hint,
+      thumb: (p) => PropThumb(p,
+          race: Figures.isPerson(p) && !Figures.loopFolk.contains(p) ? race : null,
+          people: sys.art.people,
+          anomaly: sys.art.anomaly),
+    );
+  }
+
   /// Chips de raça (combinada com a classe ou ocupação escolhida).
   static List<Widget> raceChips(EditorState editor, PropType? selected, void Function(PropType) onPick) {
     final sys = editor.system;
+    final races = editor.availableRaces;
+    // lista suspensa: com 17 raças, botões empurravam o resto do painel para baixo
     return [
-      const SubLabel('Raça'),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final r in editor.availableRaces)
-          PaperChip(
-            label: Text(Strings.propFor(r, sys.id)),
-            selected: selected == r,
-            onSelected: (_) => onPick(r),
-          ),
-      ]),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<PropType>(
+        key: ValueKey('race-$selected'),
+        initialValue: races.contains(selected) ? selected : null,
+        isDense: true,
+        decoration: const InputDecoration(labelText: 'Raça', isDense: true),
+        items: [
+          for (final r in races) DropdownMenuItem(value: r, child: Text(Strings.propFor(r, sys.id))),
+        ],
+        onChanged: (r) {
+          if (r != null) onPick(r);
+        },
+      ),
     ];
   }
 
-  /// Chips separados por grupo (Natureza, Vila..., ou Classes, Raças...), cada grupo com título.
-  List<Widget> _grouped(List<PropGroup> groups, List<PropType> items,
-      PropType selected, void Function(PropType) onPick) {
-    final sys = editor.system;
-    return [
-      for (final g in groups)
-        if (items.any((p) => PropGroup.of(p) == g)) ...[
-          SubLabel(g.label),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final p in items)
-              if (PropGroup.of(p) == g)
-                PaperChip(
-                  label: Text(p == PropType.anomaly ? sys.anomalyName : Strings.propFor(p, sys.id)),
-                  selected: selected == p,
-                  onSelected: (_) => onPick(p),
-                ),
-          ]),
-        ],
-    ];
-  }
 }

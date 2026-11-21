@@ -13,6 +13,7 @@ final Map<PropType, PropDrawer> farmDrawers = {
   PropType.airship: _airship,
   PropType.freighter: _freighter,
   PropType.tractor: _tractor,
+  PropType.doghouse: _doghouse,
 };
 
 void _scarecrow(PropContext c) {
@@ -205,4 +206,77 @@ void _tractor(PropContext c) {
   final puff = (c.time * 1.2 + c.phase) % 1;
   c.cv.drawCircle(pipe.translate(sin(puff * 6) * 2, -10 - puff * 10),
       2 + puff * 3, c.fill(Color.fromRGBO(200, 200, 200, (1 - puff) * .5)));
+}
+
+/// Casinha de cachorro: tábuas pintadas, telhado de duas águas, porta em arco na empena,
+/// plaquinha com o nome, tigela de ração e um osso no chão.
+void _doghouse(PropContext c) {
+  final cv = c.cv;
+  c.shadowOval(c.o.translate(0, 2), 28, 11);
+  const palette = [Color(0xFFB5523F), Color(0xFF5E7FA8), Color(0xFF8A6A4A), Color(0xFF6E9A55)];
+  final wall = palette[c.hs % palette.length];
+  final roof = shade(wall, -.35);
+  const x0 = -.24, y0 = -.2, w = .48, d = .4, h = 9.0, ridge = 16.0;
+  c.box(x0, y0, w, d, 0, h, wall);
+  // tábuas
+  final plank = c.stroke(shade(wall, -.25), .6);
+  for (var z = 3.0; z < h; z += 3) {
+    cv.drawLine(c.at(x0, y0 + d, z), c.at(x0 + w, y0 + d, z), plank);
+    cv.drawLine(c.at(x0 + w, y0 + d, z), c.at(x0 + w, y0, z), plank);
+  }
+  // empena (face da direita) com a porta em arco
+  final gable = Path()
+    ..moveTo(c.at(x0 + w, y0 + d, h).dx, c.at(x0 + w, y0 + d, h).dy)
+    ..lineTo(c.at(x0 + w, y0, h).dx, c.at(x0 + w, y0, h).dy)
+    ..lineTo(c.at(x0 + w, y0 + d / 2, ridge).dx, c.at(x0 + w, y0 + d / 2, ridge).dy)
+    ..close();
+  cv.drawPath(gable, c.fill(shade(wall, -.1)));
+  cv.drawPath(gable, c.stroke(shade(wall, -.4), .8));
+  // de costas: a empena visível é a dos fundos, sem porta
+  final Path? door = c.back ? null : Path();
+  door
+    ?..moveTo(c.at(x0 + w, y0 + d * .72, 0).dx, c.at(x0 + w, y0 + d * .72, 0).dy)
+    ..lineTo(c.at(x0 + w, y0 + d * .28, 0).dx, c.at(x0 + w, y0 + d * .28, 0).dy)
+    ..lineTo(c.at(x0 + w, y0 + d * .28, 6).dx, c.at(x0 + w, y0 + d * .28, 6).dy)
+    ..quadraticBezierTo(c.at(x0 + w, y0 + d / 2, 11).dx, c.at(x0 + w, y0 + d / 2, 11).dy,
+        c.at(x0 + w, y0 + d * .72, 6).dx, c.at(x0 + w, y0 + d * .72, 6).dy)
+    ..close();
+  if (door != null) {
+    cv.drawPath(door, c.fill(const Color(0xFF2E2A26)));
+    cv.drawPath(door, c.stroke(const Color(0xFFF3E7CE), 1.1));
+  } else {
+    // janelinha de ventilação nos fundos
+    cv.drawCircle(c.at(x0 + w, y0 + d / 2, 6), 1.6, c.fill(shade(wall, -.45)));
+  }
+  // telhado (cumeeira ao longo de x), com beiral
+  List<Offset> slope(double yEdge, double yRidge) => [
+        c.at(x0 - .05, yEdge, h - 1),
+        c.at(x0 + w + .06, yEdge, h - 1),
+        c.at(x0 + w + .06, yRidge, ridge + 1),
+        c.at(x0 - .05, yRidge, ridge + 1),
+      ];
+  for (final (pts, col) in [
+    (slope(y0 - .05, y0 + d / 2), shade(roof, -.1)),
+    (slope(y0 + d + .05, y0 + d / 2), roof),
+  ]) {
+    final p = Path()..addPolygon(pts, true);
+    cv.drawPath(p, c.fill(col));
+    cv.drawPath(p, c.stroke(shade(roof, -.4), .9));
+  }
+  cv.drawLine(c.at(x0 - .05, y0 + d / 2, ridge + 1), c.at(x0 + w + .06, y0 + d / 2, ridge + 1),
+      c.stroke(shade(roof, .2), 1.2));
+  if (c.back) return; // placa, tigela e osso ficam na frente, do lado escondido
+  // plaquinha com o nome sobre a porta
+  final sign = c.at(x0 + w, y0 + d / 2, 12.5);
+  cv.drawRect(Rect.fromCenter(center: sign, width: 7, height: 3), c.fill(const Color(0xFFF3E7CE)));
+  // tigela de ração e osso
+  final bowl = c.at(x0 + w + .2, y0 + d * .85, 0);
+  cv.drawOval(Rect.fromCenter(center: bowl, width: 8, height: 3.6), c.fill(const Color(0xFFC0392B)));
+  cv.drawOval(Rect.fromCenter(center: bowl.translate(0, -.8), width: 5.6, height: 2), c.fill(const Color(0xFF8A5A3C)));
+  final bone = c.at(x0 + w + .22, y0 - .02, 0);
+  cv.drawLine(bone.translate(-3, 0), bone.translate(3, 0), c.stroke(const Color(0xFFF5F0E6), 1.6));
+  for (final dx in const [-3.0, 3.0]) {
+    cv.drawCircle(bone.translate(dx, -.6), 1.2, c.fill(const Color(0xFFF5F0E6)));
+    cv.drawCircle(bone.translate(dx, .6), 1.2, c.fill(const Color(0xFFF5F0E6)));
+  }
 }

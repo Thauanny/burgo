@@ -18,6 +18,8 @@ import '../geometry/iso.dart';
 import '../persistence/city_codec.dart';
 import '../project/floor_navigator.dart';
 import '../project/project_editor.dart';
+import '../project/share_link.dart' show MapRecipe;
+import '../render/layers/rotate_handles.dart';
 import '../render/scene_view.dart';
 import '../systems/rpg_system.dart';
 import '../systems/settlement_type.dart';
@@ -133,10 +135,14 @@ class EditorState extends ChangeNotifier
   RoadKind roadKind = RoadKind.paved;
   @override
   WallKind wallKind = WallKind.stone;
+  @override
+  bool wallGate = false;
 
   /// Na ferramenta Fazenda: objeto a colocar (nulo = plantação).
   @override
   PropType? farmProp;
+  @override
+  BuildingKind? farmBuilding;
 
   /// Raio de movimento das pessoas, dos monstros e dos animais (para todos de uma vez e
   /// para os novos que forem postos).
@@ -158,6 +164,14 @@ class EditorState extends ChangeNotifier
 
   void setFarmProp(PropType? t) {
     farmProp = t;
+    farmBuilding = null;
+    notifyListeners();
+  }
+
+  /// Escolhe uma construção para a ferramenta Fazenda colocar (nulo volta à plantação).
+  void setFarmBuilding(BuildingKind? k) {
+    farmBuilding = k;
+    if (k != null) farmProp = null;
     notifyListeners();
   }
 
@@ -257,6 +271,7 @@ class EditorState extends ChangeNotifier
 
   @override
   void loadJson(Map<String, dynamic> json) {
+    _generatedAt = -1;
     final loaded = cityFromJson(json['city'] as Map<String, dynamic>);
     city = loaded;
     system = _systems.byId(loaded.systemId);
@@ -295,6 +310,7 @@ class EditorState extends ChangeNotifier
         (json['dungeons'] as List?)?.cast<Map<String, dynamic>>() ?? const [],
         (json['floor'] as num?)?.toInt());
     revision++;
+    freshCity++;
     viewport.requestFit();
     notifyListeners();
   }
@@ -309,17 +325,56 @@ class EditorState extends ChangeNotifier
 
   /// Guarda o estado atual para poder desfazer. Chamado antes de cada alteração.
   @override
-  void beginEdit({String? key, Offset? shiftTiles}) =>
-      _history.record(city, key: key, note: shiftTiles);
+  void beginEdit({String? key, Offset? shiftTiles}) {
+    _edits++;
+    _history.record(city, key: key, note: shiftTiles);
+  }
+
+  int _edits = 0;
+
+  /// Contagem de edições logo depois da última geração (-1 = mapa aberto de um arquivo).
+  int _generatedAt = -1;
+
+  @override
+  MapRecipe? get shareRecipe => _edits != _generatedAt || dungeons.isNotEmpty
+      ? null
+      : MapRecipe(
+          systemId: system.id,
+          settlementId: settlement.id,
+          mode: mode.name,
+          seed: city.seed,
+          tiles: _wantedTiles ?? city.size,
+          zone: withZone,
+          farmGap: farmGap);
+
+  /// Gera de novo o mapa de uma receita (link curto de compartilhamento).
+  void applyRecipe(MapRecipe r) {
+    system = _systems.byId(r.systemId);
+    settlement = system.art.settlements
+        .firstWhere((s) => s.id == r.settlementId, orElse: () => system.art.settlements.first);
+    mode = SettlementMode.values.firstWhere((m) => m.name == r.mode, orElse: () => settlement.defaultMode);
+    withZone = r.zone;
+    farmGap = r.farmGap;
+    _syncDraftToEra();
+    city.kmPerTile = 1;
+    generate(seed: r.seed, tiles: r.tiles);
+    _history.clear();
+  }
+
+  /// Edições da cidade e das masmorras dos pisos de baixo.
+  @override
+  int get contentVersion => dungeons.values.fold(_edits, (n, d) => n + d.contentVersion);
 
   @override
   void undo() {
+    _edits++;
     final r = _history.undo(city);
     if (r != null) _restore(r.$1, r.$2 as Offset?, forward: false);
   }
 
   @override
   void redo() {
+    _edits++;
     final r = _history.redo(city);
     if (r != null) _restore(r.$1, r.$2 as Offset?, forward: true);
   }
@@ -360,6 +415,10 @@ class EditorState extends ChangeNotifier
 
   /// Muda quando a cidade é regenerada (a UI usa para reiniciar campos de texto).
   int revision = 0;
+
+  /// Muda só quando entra uma cidade nova (gerar ou abrir), não ao desfazer: a tela de
+  /// "preparando o mapa" aparece nesses momentos.
+  int freshCity = 0;
 
   Tool get tool => _tools[toolId]!;
   @override
@@ -402,13 +461,19 @@ class EditorState extends ChangeNotifier
   @override
   double get zoom => viewport.zoom;
   @override
+  bool get interacting => viewport.interacting;
+  @override
+  bool get lowDetail => viewport.zoom < .18;
+  @override
   PlacementPreview? get preview {
     final tile = viewport.hover;
     if (tile == null || !city.inBounds(tile.x, tile.y)) return null;
+    // mouse sobre uma seta de girar: nada de fantasma nem realce por baixo dela
+    if (handleHover.value != null) return null;
     // sobre algo que já existe, só realça (clicar seleciona para mover/editar)
     if (_pickFirstTools.contains(toolId) &&
         toolId != ToolId.select &&
-        rules.isOccupied(tile.x, tile.y)) {
+        _occupiedForPick(tile.x, tile.y)) {
       return TilePreview(tile.x, tile.y, TilePreviewKind.hover);
     }
     return tool.previewAt(this, tile);
@@ -433,8 +498,20 @@ class EditorState extends ChangeNotifier
   int? _wantedTiles;
 
   /// Gera outra cidade. Sem [seed], sorteia uma nova.
+  /// Volta ao mapa padrão (tamanho de cidade e escala de 1 km por bloco). Usado ao trocar de
+  /// sistema, e ao trocar de lugar quando o tamanho atual veio de um mapa oficial (Vectora,
+  /// Valkaria...), que não é um dos tamanhos da lista.
+  void _resetMapSize({bool always = false}) {
+    final current = _wantedTiles ?? city.size;
+    if (always || !CitySize.values.any((s) => s.tiles == current)) {
+      _wantedTiles = CitySize.town.tiles;
+      city.kmPerTile = 1;
+    }
+  }
+
   void generate({int? seed, CitySize? size, int? tiles, String? historyKey}) {
     beginEdit(key: historyKey);
+    _generatedAt = _edits;
     final km = city.kmPerTile;
     _wantedTiles ??= city.size;
     final want = tiles ?? size?.tiles ?? _wantedTiles!;
@@ -446,6 +523,7 @@ class EditorState extends ChangeNotifier
     selected = null;
     hook = null;
     revision++;
+    freshCity++;
     viewport.requestFit();
     notifyListeners();
   }
@@ -468,6 +546,7 @@ class EditorState extends ChangeNotifier
     // a área especial volta ao trocar de tipo (cidades oficiais nascem sempre sem ela)
     withZone = defaultZoneFor(type);
     _syncDraftToEra();
+    _resetMapSize();
     generate(seed: city.seed);
   }
 
@@ -497,6 +576,8 @@ class EditorState extends ChangeNotifier
       characterRace = s.availableRaces.first;
     }
     _syncDraftToEra();
+    // outro sistema começa do mapa padrão: tamanho de cidade, escala e população do zero
+    _resetMapSize(always: true);
     generate(seed: city.seed);
   }
 
@@ -550,8 +631,10 @@ class EditorState extends ChangeNotifier
     ];
   }
 
-  /// Objetos (sem pessoas e monstros), personagens (classes, povo, monstros) e raças.
-  List<PropType> get availableObjects => availableProps.where((p) => !Figures.isFigure(p)).toList();
+  /// Objetos (sem pessoas e monstros), personagens (classes, povo, monstros) e raças. A entrada
+  /// de masmorra não está entre os objetos: ela nasce junto com o piso de baixo (seção Pisos).
+  List<PropType> get availableObjects =>
+      availableProps.where((p) => !Figures.isFigure(p) && p != PropType.dungeonEntrance).toList();
   List<PropType> get availableCharacters =>
       availableProps.where((p) => Figures.isFigure(p) && !Figures.races.contains(p)).toList();
   List<PropType> get availableRaces => system.availablePropsFor(era).where(Figures.races.contains).toList();
@@ -639,6 +722,7 @@ class EditorState extends ChangeNotifier
     toolId = id;
     rulerStart = null;
     selected = null;
+    _lastPlacedId = null;
     notifyListeners();
   }
 
@@ -673,6 +757,11 @@ class EditorState extends ChangeNotifier
 
   void setWallKind(WallKind k) {
     wallKind = k;
+    notifyListeners();
+  }
+
+  void setWallGate(bool v) {
+    wallGate = v;
     notifyListeners();
   }
 
@@ -739,23 +828,91 @@ class EditorState extends ChangeNotifier
 
   /// Item que ocupa o tile clicado (ferramentas de colocar só selecionam o que está no
   /// próprio tile: clicar no chão livre ao lado de uma árvore coloca, não seleciona a árvore).
+  /// Plantando (ferramenta Fazenda, sem objeto nem construção escolhidos): o mato do terreno
+  /// não conta como ocupado, porque a plantação o limpa.
+  bool get _planting => toolId == ToolId.farm && farmProp == null && farmBuilding == null;
+
+  bool _occupiedForPick(int x, int y) =>
+      _planting ? rules.isOccupiedButPlants(x, y) : rules.isOccupied(x, y);
+
   MapItem? _itemOnTile(Offset scene) {
     final t = Iso.tileAt(scene);
-    if (!rules.isOccupied(t.x, t.y)) return null;
+    if (!_occupiedForPick(t.x, t.y)) return null;
     final hit = pickAt(scene);
     bool covers(MapItem i) => switch (i) {
           final Building b => b.occupies(t.x, t.y),
           final Farm f => f.occupies(t.x, t.y),
           final Prop p => p.x == t.x && p.y == t.y,
         };
-    if (hit != null && covers(hit)) return hit;
+    final plant = _planting && hit is Prop && PlacementRules.isClearablePlant(hit.type);
+    if (hit != null && !plant && covers(hit)) return hit;
     for (final i in [...city.props, ...city.buildings, ...city.farms]) {
+      if (i is Prop && i.type == PropType.dungeonEntrance) continue; // só pela seção Pisos
+      if (_planting && i is Prop && PlacementRules.isClearablePlant(i.type)) continue;
       if (covers(i)) return i;
     }
     return null;
   }
 
+  /// Último objeto ou construção colocado: mostra as setas de girar até clicar em outra coisa.
+  int? _lastPlacedId;
+
+  @override
+  MapItem? get rotatable {
+    final s = selected;
+    if (s != null) return RotateHandles.canRotate(s) ? s : null;
+    final id = _lastPlacedId;
+    if (id == null) return null;
+    for (final i in [...city.buildings, ...city.props]) {
+      if (i.id == id) return RotateHandles.canRotate(i) ? i : null;
+    }
+    return null;
+  }
+
+  /// Seta de girar sob o mouse (-1 ou +1); muda só quando o mouse entra ou sai de uma seta.
+  final ValueNotifier<int?> handleHover = ValueNotifier(null);
+
+  @override
+  int? get hoveredHandle => handleHover.value;
+
+  /// Onde o mouse está na cena (nulo = fora do mapa): decide se está sobre uma seta de girar.
+  void hoverAt(Offset? scene) => handleHover.value = scene == null ? null : _handleAt(scene);
+
+  /// Seta de girar sob o ponto (-1 = anti-horário, +1 = horário), se houver.
+  int? _handleAt(Offset scene) {
+    final item = rotatable;
+    return item == null ? null : RotateHandles.hit(item, scene, viewport.zoom);
+  }
+
+  /// Gira [item] 90° ([step] +1 = horário, -1 = anti-horário). A construção gira em volta do
+  /// centro (largura e profundidade trocam); se não couber ali, não gira e devolve falso.
+  bool turnItem(MapItem item, int step) {
+    switch (item) {
+      case final Building b:
+        final turned = b.copyWith(turn: (b.turn + step) % 4, width: b.depth, depth: b.width);
+        final centered = turned.copyWith(
+            x: b.x + ((b.width - b.depth) / 2).floor(), y: b.y + ((b.depth - b.width) / 2).floor());
+        for (final c in [centered, turned]) {
+          if (rules.canPlaceBuilding(c, ignoreId: b.id)) {
+            updateItem(c);
+            return true;
+          }
+        }
+        return false;
+      case final Prop p:
+        updateItem(p.copyWith(turn: (p.turn + step) % 4));
+        return true;
+      case Farm _:
+        return false;
+    }
+  }
+
   void tapAt(Offset scene) {
+    final turn = _handleAt(scene);
+    if (turn != null) {
+      turnItem(rotatable!, turn);
+      return;
+    }
     if (_pickFirstTools.contains(toolId) && toolId != ToolId.select) {
       final item = _itemOnTile(scene);
       if (item != null) {
@@ -771,7 +928,7 @@ class EditorState extends ChangeNotifier
   }
 
   bool dragStartAt(Offset scene) {
-    if (toolId == ToolId.pan) return false;
+    if (toolId == ToolId.pan || _handleAt(scene) != null) return false;
     final tile = Iso.tileAt(scene);
     if (_pickFirstTools.contains(toolId) &&
         toolId != ToolId.select &&
@@ -794,17 +951,22 @@ class EditorState extends ChangeNotifier
   void changeSelectedPropType(PropType type) {
     final p = selected;
     if (p is! Prop || p.type == type) return;
-    final changed = Prop(id: p.id, x: p.x, y: p.y, type: type, race: Figures.isPerson(type) ? p.race : null);
+    final changed = Prop(id: p.id, x: p.x, y: p.y, type: type, race: Figures.isPerson(type) ? p.race : null, turn: p.turn);
     if (rules.canPlaceProp(p.x, p.y, type, ignoreId: p.id)) updateItem(changed);
   }
 
   // ---------- ToolHost ----------
   @override
-  MapItem? pickAt(Offset scene) => pickItemAt(city, scene);
+  MapItem? pickAt(Offset scene) => pickItemAt(city, scene, moverAt: moverAnchor);
+
+  /// Onde cada ser vivo que anda está agora (dado pela camada que o desenha), para o clique
+  /// achá-lo andando e não só no tile onde foi posto.
+  MoverLocator? moverAnchor;
 
   @override
   void select(MapItem? item) {
     selected = item;
+    _lastPlacedId = null;
     notifyListeners();
   }
 
@@ -812,6 +974,7 @@ class EditorState extends ChangeNotifier
   void addItem(MapItem item) {
     beginEdit();
     city.add(item);
+    _lastPlacedId = item.id;
     if (creatingFloor &&
         item is Prop &&
         item.type == PropType.dungeonEntrance) {
@@ -1180,21 +1343,41 @@ class EditorState extends ChangeNotifier
     notifyListeners();
   }
 
-  /// Sobe para o piso de cima e seleciona a entrada de onde veio.
+  /// Sobe para o piso de cima: o painel volta para a aba Mapa, sem nada selecionado.
   @override
   void ascend() {
-    final id = activeEntranceId;
     activeEntranceId = null;
     activateProjection();
-    final e = id == null ? null : _entrance(id);
-    if (e != null) selected = e;
+    selected = null;
+    _lastPlacedId = null;
+    pendingPanelTab = 0;
     notifyListeners();
   }
+
+  /// Aba do painel lateral pedida pelo editor (0 = Mapa); o painel muda e limpa o pedido.
+  int? pendingPanelTab;
 
   void removeDungeon(int entranceId) {
     dungeons.remove(entranceId)?.dispose();
     if (activeEntranceId == entranceId) activeEntranceId = null;
     sceneTick.value++;
+    notifyListeners();
+  }
+
+  /// Apaga o piso de baixo inteiro: a masmorra e a entrada dela no mapa.
+  void removeFloor(int entranceId) {
+    final e = _entrance(entranceId);
+    removeDungeon(entranceId);
+    if (e != null) removeItem(e);
+    if (draftEntranceId == entranceId) draftEntranceId = null;
+  }
+
+  /// Apaga uma entrada que ainda não tem masmorra (escolhida no mapa e não usada).
+  void removeFreeEntrance(int entranceId) {
+    if (dungeons.containsKey(entranceId)) return;
+    final e = _entrance(entranceId);
+    if (e != null) removeItem(e);
+    if (draftEntranceId == entranceId) draftEntranceId = null;
     notifyListeners();
   }
 

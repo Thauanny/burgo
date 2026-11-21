@@ -28,7 +28,7 @@ enum Era {
 
   /// Casa e galpão dos sítios da época (no futuro, estufas e laboratórios hidropônicos).
   BuildingKind get farmHouseKind => switch (this) {
-        Era.medieval => BuildingKind.cottage,
+        Era.medieval || Era.victorian || Era.western => BuildingKind.countryHouse,
         Era.cyber => BuildingKind.greenhouse,
         _ => BuildingKind.farmhouse,
       };
@@ -66,6 +66,8 @@ abstract final class EraRules {
     BuildingKind.lab: {Era.modern, Era.cyber},
     BuildingKind.skyscraper: {Era.modern, Era.cyber},
     BuildingKind.farmhouse: {Era.victorian, Era.western, Era.modern},
+    BuildingKind.countryHouse: {Era.medieval, Era.victorian, Era.western},
+    BuildingKind.stable: {Era.medieval, Era.victorian, Era.western, Era.modern},
     BuildingKind.silo: {Era.victorian, Era.western, Era.modern},
     BuildingKind.saloon: {Era.western},
     BuildingKind.pagoda: {Era.medieval},

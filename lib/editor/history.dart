@@ -1,6 +1,6 @@
 /// Histórico de desfazer/refazer por cópias do estado. Cada projeto guarda até [limit] passos.
 class History<T> {
-  History({required this.clone, this.limit = 60});
+  History({required this.clone, this.limit = 40});
 
   final T Function(T) clone;
   final int limit;

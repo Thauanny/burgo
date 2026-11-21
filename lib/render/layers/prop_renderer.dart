@@ -35,6 +35,7 @@ class PropContext {
         hs = tileHash(p.id, p.id * 7 + 3), // por id: não muda ao girar o mapa
         race = p.race,
         face = face ?? (tileHash(p.id, p.id * 7 + 3).isEven ? 1 : -1),
+        back = p.turn == 1 || p.turn == 2,
         sprite = false,
         _cycle = null;
 
@@ -56,6 +57,7 @@ class PropContext {
         cy = .5,
         hs = tileHash(variant * 31 + 7, variant * 13 + 5),
         time = cycle * 2 * pi,
+        back = false,
         sprite = true,
         _cycle = cycle;
 
@@ -76,6 +78,10 @@ class PropContext {
 
   /// Para onde o boneco olha na tela (+1 direita, -1 esquerda) e se está parado.
   final double face;
+
+  /// O objeto está virado de costas (giro de 90° ou 180°): a frente (porta, balcão, varais)
+  /// fica do lado escondido e o desenho mostra o fundo. Os outros dois giros são o espelho.
+  final bool back;
   final bool idle;
 
   /// Para cercas: há cerca (ou muro) no tile vizinho (dx, dy) da vista?

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import '../dungeon/dungeon_editor.dart';
 import '../geometry/iso.dart';
 import '../render/dungeon/dungeon_painter.dart';
@@ -83,8 +84,14 @@ class _DungeonCanvasState extends State<DungeonCanvas>
       final map = Listener(
         onPointerSignal: (e) {
           if (e is PointerScrollEvent) {
-            vp.zoomAround(
-                e.localPosition, vp.zoom * (1 - e.scrollDelta.dy / 600));
+            // Shift + roda (ou rolagem lateral do trackpad) anda para os lados; a roda dá zoom
+            final d = e.scrollDelta;
+            if (HardwareKeyboard.instance.isShiftPressed || d.dx.abs() > d.dy.abs()) {
+              final amount = d.dx != 0 ? d.dx : d.dy;
+              vp.moveTo(vp.pan.translate(-amount, 0), vp.zoom);
+            } else {
+              vp.zoomAround(e.localPosition, vp.zoom * (1 - d.dy / 600));
+            }
           }
         },
         child: MouseRegion(
@@ -151,6 +158,7 @@ class _DungeonCanvasState extends State<DungeonCanvas>
           left: 14,
           bottom: 24,
           child: MapControls(
+            onPan: (d) => vp.moveTo(vp.pan + d, vp.zoom),
             onRotateLeft: () => editor.rotate(-1),
             onRotateRight: () => editor.rotate(1),
             onIn: () => vp.zoomAround(size.center(Offset.zero), vp.zoom * 1.25),

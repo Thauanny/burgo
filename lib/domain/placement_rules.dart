@@ -10,6 +10,32 @@ class PlacementRules {
   static const _waterOnly = {PropType.boat};
   static const _waterOk = {PropType.boat, PropType.dock};
 
+  /// Portões de cerca e de sebe podem cruzar uma rua (ou estrada de terra).
+  static const _roadOk = {PropType.fenceGate, PropType.hedgeGate};
+
+  /// Mato que sai do lugar quando se abre uma plantação: árvores, arbustos, flores e cactos.
+  static bool isClearablePlant(PropType t) => const {
+        PropType.tree,
+        PropType.pine,
+        PropType.sakura,
+        PropType.autumnTree,
+        PropType.frostTree,
+        PropType.bush,
+        PropType.giantFlower,
+        PropType.cactus,
+      }.contains(t);
+
+  /// Bichos e pessoas que andam: não seguram o terreno (saem do caminho ao plantar).
+  static bool isWalker(PropType t) =>
+      const {PropType.cow, PropType.sheep, PropType.chicken, PropType.dog, PropType.horse}.contains(t) ||
+      (Figures.isFigure(t) && t != PropType.mDragon && t != PropType.mCube);
+
+  /// Há algo no tile além de mato e de quem anda (a plantação limpa um e afasta o outro)?
+  bool isOccupiedButPlants(int x, int y) {
+    if (city.buildings.any((b) => b.occupies(x, y)) || city.farms.any((f) => f.occupies(x, y))) return true;
+    return city.props.any((p) => p.x == x && p.y == y && !isClearablePlant(p.type) && !isWalker(p.type));
+  }
+
   /// Há construção, fazenda ou objeto no tile? [ignoreId] desconsidera o próprio item (ao movê-lo).
   bool isOccupied(int x, int y, {int? ignoreId}) {
     for (final b in city.buildings) {
@@ -41,10 +67,13 @@ class PlacementRules {
     return true;
   }
 
-  bool canPlaceFarm(Farm f, {int? ignoreId}) {
+  /// Cabe a plantação? Com [clearPlants], árvores e arbustos no terreno não impedem (são
+  /// tirados ao plantar); casas, ruas, água, muros, outras plantações e objetos impedem.
+  bool canPlaceFarm(Farm f, {int? ignoreId, bool clearPlants = false}) {
     for (var i = f.x; i < f.x + f.width; i++) {
       for (var j = f.y; j < f.y + f.depth; j++) {
-        if (_blockedGround(i, j) || isOccupied(i, j, ignoreId: ignoreId)) {
+        if (_blockedGround(i, j) ||
+            (clearPlants ? isOccupiedButPlants(i, j) : isOccupied(i, j, ignoreId: ignoreId))) {
           return false;
         }
       }
@@ -61,7 +90,7 @@ class PlacementRules {
     final onWater = city.water.at(x, y);
     if (onWater) return _waterOk.contains(type);
     if (_waterOnly.contains(type)) return false;
-    return !city.road.at(x, y);
+    return !city.road.at(x, y) || _roadOk.contains(type);
   }
 
   bool canPlace(MapItem item, {int? ignoreId}) => switch (item) {

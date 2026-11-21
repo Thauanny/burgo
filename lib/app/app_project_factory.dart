@@ -4,6 +4,7 @@ import '../dungeon/dungeon_generator.dart';
 import '../editor/editor_state.dart';
 import '../generation/procedural_city_generator.dart';
 import '../project/project_editor.dart';
+import '../project/share_link.dart' show MapRecipe;
 import '../project/workspace.dart';
 import '../systems/system_repository.dart';
 
@@ -41,4 +42,7 @@ class AppProjectFactory implements ProjectFactory {
   @override
   ProjectEditor empty(ProjectKind kind) =>
       kind == ProjectKind.city ? _city() : _dungeon();
+
+  @override
+  ProjectEditor fromRecipe(MapRecipe recipe) => _city()..applyRecipe(recipe);
 }

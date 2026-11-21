@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../geometry/iso.dart';
+import 'share_link.dart' show MapRecipe;
 
 enum ProjectKind { city, dungeon }
 
@@ -12,6 +13,13 @@ abstract interface class ProjectEditor implements Listenable {
 
   /// Nome mostrado na aba.
   String get title;
+
+  /// Conta as edições do conteúdo (não muda ao selecionar, trocar de ferramenta ou de vista):
+  /// a aba compara com o número da última vez em que foi salva para saber se há algo não salvo.
+  int get contentVersion;
+
+  /// Receita do mapa, se ele foi gerado e não foi editado (vira um link curto); nulo se não.
+  MapRecipe? get shareRecipe;
 
   /// Avisa de qualquer mudança no conteúdo (inclusive as que não reconstroem o painel): usado no salvamento automático.
   Listenable get changes;

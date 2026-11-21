@@ -5,6 +5,7 @@ import '../../geometry/iso.dart';
 import '../draw_helpers.dart';
 import '../scene_view.dart';
 import 'entities_layer.dart';
+import 'rotate_handles.dart';
 
 /// Seleção, realce do tile sob o cursor e fantasma do item a colocar.
 class OverlayLayer {
@@ -17,6 +18,8 @@ class OverlayLayer {
 
   void paint(Canvas cv, SceneView scene) {
     _selection(cv, scene);
+    final turnable = scene.rotatable;
+    if (turnable != null) RotateHandles.paint(cv, turnable, scene.zoom, hovered: scene.hoveredHandle);
     switch (scene.preview) {
       case null:
         break;
@@ -30,7 +33,7 @@ class OverlayLayer {
         final c = Iso.pt(p.x + .5, p.y + .5, 20);
         cv.saveLayer(Rect.fromCenter(center: c, width: 220, height: 220),
             Paint()..color = const Color.fromARGB(170, 255, 255, 255));
-        entities.paintWallGhost(cv, p.x, p.y, p.kind, scene);
+        entities.paintWallGhost(cv, p.x, p.y, p.kind, scene, gate: p.gate);
         cv.restore();
       case RadiusPreview _:
         break; // o anel do raio é desenhado pela camada de anotações

@@ -33,6 +33,12 @@ class _SidePanelState extends State<SidePanel> {
 
   /// Ao selecionar algo no mapa, abre a aba Editar, onde ficam as opções do item.
   void _followSelection(BuildContext context) {
+    final want = editor.pendingPanelTab;
+    if (want != null) {
+      editor.pendingPanelTab = null;
+      final tabs = DefaultTabController.of(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) => tabs.animateTo(want));
+    }
     final id = editor.selected?.id;
     if (id != null && id != _lastSelected) {
       final tabs = DefaultTabController.of(context);
@@ -96,8 +102,14 @@ class _SidePanelState extends State<SidePanel> {
                         PanelCard(
                             children: [PopulationSection(editor: editor)]),
                       ]),
-                      // Editar: o item selecionado, as ferramentas e as opções da ferramenta
+                      // Editar: a paleta de ferramentas sempre no alto; embaixo, conforme o
+                      // contexto, o inspetor do item selecionado OU as opções da ferramenta
                       _tab([
+                        PanelCard(
+                          title: Strings.sectionTools,
+                          icon: Icons.handyman_outlined,
+                          children: [ToolsSection(editor: editor, options: false)],
+                        ),
                         if (editor.selected != null)
                           PanelCard(
                             title: 'Selecionado',
@@ -112,26 +124,17 @@ class _SidePanelState extends State<SidePanel> {
                               BuildingSection(editor: editor),
                               FarmSection(editor: editor),
                             ],
-                          ),
-                        PanelCard(
-                          title: Strings.sectionTools,
-                          icon: Icons.handyman_outlined,
-                          children: [
-                            ToolsSection(editor: editor, options: false)
-                          ],
-                        ),
-                        PanelCard(
-                          title:
-                              'Opções · ${Strings.toolLabel(editor.toolId, zoneName: editor.system.zoneName)}',
-                          icon: Icons.tune,
-                          children: [
-                            if (editor.selected == null) ...[
+                          )
+                        else
+                          PanelCard(
+                            title: Strings.toolLabel(editor.toolId, zoneName: editor.system.zoneName),
+                            icon: Icons.tune,
+                            children: [
                               BuildingSection(editor: editor),
                               FarmSection(editor: editor),
+                              ToolsSection(editor: editor, picker: false),
                             ],
-                            ToolsSection(editor: editor, picker: false),
-                          ],
-                        ),
+                          ),
                       ]),
                       // Exibir: como o mapa aparece
                       _tab([

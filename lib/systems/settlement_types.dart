@@ -13,6 +13,9 @@ abstract final class SettlementTypes {
   // ------------------------------------------------------------------ Tormenta20
   static const t20Capital = SettlementType(
     id: 'capital',
+    // metrópole enorme: população padrão enxuta para o mapa rodar leve (dá para pôr mais em População)
+    maxPeople: 75,
+    maxMonsters: 15,
     // Valkaria (Tormenta Wiki): metrópole cosmopolita; humanos maioria, com Bairro dos Anões,
     // Vila Élfica, Favela dos Goblins e bairros de hynne e minotauros.
     population: [PropWeight(_P.raceHuman, 58), PropWeight(_P.raceGoblin, 8), PropWeight(_P.raceDwarf, 7), PropWeight(_P.raceElf, 6), PropWeight(_P.raceHalfling, 5), PropWeight(_P.raceMinotaur, 4), PropWeight(_P.raceQareen, 3), PropWeight(_P.raceDahllan, 2), PropWeight(_P.raceLefou, 2), PropWeight(_P.raceKliren, 1), PropWeight(_P.raceOsteon, 1), PropWeight(_P.raceTrog, 1), PropWeight(_P.raceMedusa, 0.5), PropWeight(_P.raceSuraggel, 0.5), PropWeight(_P.raceMermaid, 0.5), PropWeight(_P.raceGolem, 0.5)],
@@ -54,7 +57,9 @@ abstract final class SettlementTypes {
     ],
     extras: [
       ExtraBuilding(_K.colossus, 'Estátua de Valkaria'),
-      ExtraBuilding(_K.castle, 'Palácio Imperial', u: 0.20, v: -0.18),
+      // "uma fortaleza impressionante, bem diante da estátua de Valkaria"; a área em volta é a
+      // única da cidade proibida às pessoas comuns (Tormenta Wiki, "Valkaria, a Cidade Imperial")
+      ExtraBuilding(_K.castle, 'Palácio Imperial', u: 0, v: .38, precinct: true, size: 6),
       ExtraBuilding(_K.arena, 'Arena de Valkaria', u: 0.0, v: -0.55, minBlocks: 12),
     ],
     districts: [

@@ -74,7 +74,7 @@ class DistrictSpec {
 /// Com [pond], um lago circular em volta (a estátua de Valkaria).
 class ExtraBuilding {
   const ExtraBuilding(this.kind, this.name,
-      {this.angleDeg, this.u, this.v, this.pond = false, this.minBlocks = 0});
+      {this.angleDeg, this.u, this.v, this.pond = false, this.minBlocks = 0, this.precinct = false, this.size});
   final BuildingKind kind;
 
   /// Só entra se a cidade tiver ao menos este número de quarteirões (nas pequenas não sobra lugar).
@@ -85,6 +85,13 @@ class ExtraBuilding {
   /// Posição desejada na elipse da cidade (como em [DistrictSpec.u]); vale mais que [angleDeg].
   final double? u, v;
   final bool pond;
+
+  /// Castelo em recinto próprio: muralha em volta do terreno, portão virado para o centro da
+  /// cidade, jardim e guardas (o Palácio Imperial de Valkaria, área proibida ao povo).
+  final bool precinct;
+
+  /// Lado da base (em blocos), no lugar do tamanho padrão do tipo (o Palácio Imperial é maior).
+  final int? size;
 }
 
 /// Linha desenhada no mapa (aqueduto, canal), em pontos da elipse da cidade (u, v pares).
@@ -155,6 +162,8 @@ class SettlementType {
     this.hasPlaza = true,
     this.landmarkSize,
     this.population,
+    this.maxPeople,
+    this.maxMonsters,
     this.wallStone,
     this.wallRoof,
     this.floating = false,
@@ -210,6 +219,10 @@ class SettlementType {
   final List<DistrictSpec>? districts;
 
   /// Quem mora na cidade (raças com pesos, pela lore); sem isso, a demografia do cenário.
+  /// Teto de pessoas e de monstros ao gerar (cidades enormes, como Valkaria, ficam leves):
+  /// a pessoa ainda pode pôr mais pela seção População. Nulo = sem teto.
+  final int? maxPeople, maxMonsters;
+
   final List<PropWeight>? population;
 
   /// Marcos extras além do destaque (estátua colossal, arena).

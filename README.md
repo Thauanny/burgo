@@ -91,14 +91,21 @@ e exporta a imagem. É gratuito e roda direto no navegador, sem instalar nada.
 | Grupo | Ferramentas |
 | --- | --- |
 | Navegar | **Mover** (arrasta o mapa; um clique mostra as opções do item) e **Selecionar** (arrasta itens para outro lugar) |
-| Terreno | **Ruas** (calçada, estrada de terra e praça), **Água**, **Muros** (muralha de pedra com torres, paliçada de madeira, muro baixo, cerca de madeira e sebe) e **Área especial** (pincel ou círculo com raio) |
-| Construir | **Construir** (tipo, andares, largura, profundidade, telhado, cores, chaminé), **Fazenda** (plantações, cercas, feno, carroça, espantalho e animais), **Objetos** (natureza, vila e praça, água e porto, tecnologia e magia) e **Personagens** |
+| Terreno | **Ruas** (calçada, estrada de terra e praça), **Água**, **Muros** (muralha de pedra com torres, paliçada de madeira, muro baixo, cerca de madeira e sebe, cada um com o seu **portão**) e **Área especial** (pincel ou círculo com raio) |
+| Construir | **Construir** (tipo, andares, largura, profundidade, telhado, cores, chaminé), **Fazenda** (plantações, casa de campo, celeiro, estábulo, silo, moinho, cercas, casinha de cachorro, feno, carroça, espantalho e animais), **Objetos** (natureza, vila e praça, água e porto, tecnologia e magia) e **Personagens** |
 | Anotar | **Marcador** com nome e **Régua** de distância, com escala em km |
 | Apagar | Remove qualquer item com um clique |
 
 - **Pré-visualização**: o item aparece "fantasma" sob o cursor antes de você clicar, verde se cabe
   ali e vermelho se não cabe.
 - **Cercas e muros se ligam** aos vizinhos sozinhos; uma rua cruzando a muralha vira portão.
+- **Portões de cada muro**: arco de pedra com grade, portão de madeira entre mourões, porteira do
+  muro baixo, porteira de cerca e arco da sebe. Clique no portão de novo para fechá-lo.
+- **Girar casas e objetos**: as setas ↺ e ↻ acima do item selecionado (ou do último colocado)
+  giram 90° (também no painel). A casa troca largura por profundidade; com a frente virada para
+  trás, a porta fica escondida, como na vista de verdade.
+- **Entrada de masmorra** é criada e apagada pela seção Pisos (Criar piso inferior › Escolher no
+  mapa); no mapa ela não se seleciona nem se apaga, para não quebrar o piso de baixo.
 - **Desfazer e refazer** (Ctrl/⌘+Z e Ctrl/⌘+Shift+Z).
 
 ### Personagens, monstros e população
@@ -131,8 +138,15 @@ e exporta a imagem. É gratuito e roda direto no navegador, sem instalar nada.
 - **Vista isométrica ou de cima**, giro em passos de 90° com animação, bússola e barra de escala.
 - **Abas**: vários projetos abertos ao mesmo tempo (cidade, fazendas, masmorra).
 - **Salvamento automático** no navegador e uma biblioteca de projetos salvos.
-- **Exportar e importar** o projeto em `.json`, que reabre exatamente igual.
+- **Exportar e importar** em `.json`, que reabre exatamente igual. Ao exportar, copiar como texto
+  ou copiar o link, com várias abas abertas, escolha **uma aba específica** ou **o projeto inteiro**
+  (todas as abas, que reabrem cada uma na sua aba).
 - **Exportar imagem PNG** do mapa inteiro, em vista isométrica ou de cima.
+- **Compartilhar por link** (Arquivo › Copiar link para compartilhar): um mapa sem edições vira um
+  link curto com a receita (sistema, lugar, semente); um mapa editado vai inteiro, comprimido, no
+  próprio link. Quem abre vê o mesmo mapa numa aba nova. Nada passa por servidor.
+- **Aviso de não salvo**: a aba com mudanças ainda não salvas na biblioteca nem exportadas ganha uma
+  bolinha; fechar essa aba ou a página pede confirmação.
 
 ## Como usar
 

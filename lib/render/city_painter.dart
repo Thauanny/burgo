@@ -21,17 +21,20 @@ class CityPainter extends CustomPainter {
       {required Listenable repaint,
       GroundLayer? ground,
       EntitiesLayer? entities,
-      PaperLayer? paper})
+      PaperLayer? paper,
+      RasterScaler? scaler})
       : ground = ground ?? GroundLayer(),
         entities = entities ?? EntitiesLayer(),
         paper = paper ?? PaperLayer(),
+        _scaler = scaler ?? RasterScaler(),
         super(repaint: repaint);
 
   final SceneView scene;
   final GroundLayer ground;
   final EntitiesLayer entities;
   final PaperLayer paper;
-  final RasterScaler _scaler = RasterScaler();
+  /// Vem de fora (do canvas) para sobreviver entre quadros: guarda a resolução atual.
+  final RasterScaler _scaler;
   static const _sky = SkyLayer();
   final ZoneEffectsLayer _zone = ZoneEffectsLayer();
   final AtmosphereLayer _atmosphere = AtmosphereLayer();
@@ -49,6 +52,7 @@ class CityPainter extends CustomPainter {
           ? 1
           : PlatformDispatcher.instance.views.first.devicePixelRatio,
       sceneArea: bounds.width * bounds.height,
+      settled: !scene.interacting,
     );
     _sky.paint(canvas, size, scene);
     canvas.save();

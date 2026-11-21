@@ -51,6 +51,9 @@ enum PropGroup {
         animals,
       PropType.fence ||
       PropType.hedge ||
+      PropType.fenceGate ||
+      PropType.hedgeGate ||
+      PropType.doghouse ||
       PropType.hay ||
       PropType.scarecrow ||
       PropType.tractor ||

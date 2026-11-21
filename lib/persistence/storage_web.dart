@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
+import 'dungeon_codec.dart' show ProjectFormatException;
 import 'project_storage.dart';
 
 ProjectStorage createProjectStorage() => WebProjectStorage();
@@ -113,22 +114,35 @@ class WebProjectStorage implements ProjectStorage {
     url.callMethod<JSAny?>('revokeObjectURL'.toJS, href.toJS);
   }
 
+  /// Abre o seletor de arquivos do navegador e devolve o texto do arquivo escolhido (`null` se
+  /// a pessoa cancelar). O campo escondido fica na página enquanto o seletor está aberto (fora
+  /// dela, alguns navegadores não avisam a escolha) e sai assim que termina.
   @override
   Future<String?> pickFile() {
     final completer = Completer<String?>();
     final doc = globalContext['document']! as JSObject;
+    final body = doc['body']! as JSObject;
     final input = doc.callMethod<JSObject>('createElement'.toJS, 'input'.toJS);
     input.setProperty('type'.toJS, 'file'.toJS);
-    input.setProperty('accept'.toJS, '.json,application/json'.toJS);
-    input.setProperty(
-        'onchange'.toJS,
+    input.setProperty('accept'.toJS, '.json,application/json,text/plain'.toJS);
+    (input['style']! as JSObject).setProperty('display'.toJS, 'none'.toJS);
+    body.callMethod<JSAny?>('appendChild'.toJS, input);
+    void done() {
+      if ((input['parentNode']) != null) body.callMethod<JSAny?>('removeChild'.toJS, input);
+    }
+
+    input.callMethod<JSAny?>(
+        'addEventListener'.toJS,
+        'change'.toJS,
         ((JSObject _) {
-          unawaited(_readChosen(input, completer));
+          unawaited(_readChosen(input, completer).whenComplete(done));
         }).toJS);
-    input.setProperty(
-        'oncancel'.toJS,
+    input.callMethod<JSAny?>(
+        'addEventListener'.toJS,
+        'cancel'.toJS,
         ((JSObject _) {
           if (!completer.isCompleted) completer.complete(null);
+          done();
         }).toJS);
     input.callMethod<JSAny?>('click'.toJS);
     return completer.future;
@@ -137,17 +151,48 @@ class WebProjectStorage implements ProjectStorage {
   /// Lê o arquivo escolhido (assíncrono, fora do callback que vai para o JavaScript).
   Future<void> _readChosen(JSObject input, Completer<String?> completer) async {
     try {
-      final files = input['files']! as JSObject;
-      final file = files.callMethod<JSObject?>('item'.toJS, 0.toJS);
+      final files = input['files'] as JSObject?;
+      final file = files?.callMethod<JSObject?>('item'.toJS, 0.toJS);
       if (file == null) {
-        completer.complete(null);
+        if (!completer.isCompleted) completer.complete(null);
         return;
       }
-      final text =
-          await file.callMethod<JSPromise<JSString>>('text'.toJS).toDart;
-      if (!completer.isCompleted) completer.complete(text.toDart);
-    } catch (_) {
-      if (!completer.isCompleted) completer.complete(null);
+      final text = await _readText(file);
+      if (!completer.isCompleted) completer.complete(text);
+    } catch (e) {
+      if (!completer.isCompleted) {
+        completer.completeError(ProjectFormatException('Não foi possível ler o arquivo ($e).'));
+      }
     }
+  }
+
+  /// Texto do arquivo, pelo FileReader (funciona em todo navegador) e, se ele falhar, por
+  /// `File.text()`.
+  Future<String> _readText(JSObject file) {
+    final result = Completer<String>();
+    try {
+      final reader = (globalContext['FileReader']! as JSFunction).callAsConstructor<JSObject>();
+      reader.setProperty(
+          'onload'.toJS,
+          ((JSObject _) {
+            final r = reader['result'];
+            result.complete(r == null ? '' : (r as JSString).toDart);
+          }).toJS);
+      reader.setProperty(
+          'onerror'.toJS,
+          ((JSObject _) {
+            unawaited(file
+                .callMethod<JSPromise<JSString>>('text'.toJS)
+                .toDart
+                .then((t) => result.complete(t.toDart), onError: result.completeError));
+          }).toJS);
+      reader.callMethod<JSAny?>('readAsText'.toJS, file, 'utf-8'.toJS);
+    } catch (_) {
+      unawaited(file
+          .callMethod<JSPromise<JSString>>('text'.toJS)
+          .toDart
+          .then((t) => result.complete(t.toDart), onError: result.completeError));
+    }
+    return result.future;
   }
 }

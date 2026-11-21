@@ -219,7 +219,7 @@ void windows(
   for (var fl = firstFloor; fl < (lastFloor ?? g.b.floors); fl++) {
     final z0 = fl * fh + zOffset;
     for (var i = 0; i < g.b.width; i++) {
-      if (fl == 0 && i == skipDoorAt) continue;
+      if (fl == 0 && i == skipDoorAt && !doorsHidden) continue;
       one(g.left, i + .5, z0, glass);
     }
     for (var i = 0; i < g.b.depth; i++) {
@@ -228,12 +228,18 @@ void windows(
   }
 }
 
+/// Construção com a frente virada para trás (norte ou oeste): a porta, a varanda e o toldo
+/// da frente não aparecem, e as janelas ocupam o lugar da porta. A camada de construções liga
+/// e desliga antes de cada desenho.
+bool doorsHidden = false;
+
 /// Porta na face esquerda, no tile [tileIndex].
 void door(Canvas cv, Geo g, int tileIndex,
     {Color color = const Color(0xFF8A5A3C),
     bool arched = true,
     double hgt = 19,
     double halfW = .2}) {
+  if (doorsHidden) return;
   final uc = tileIndex + .5;
   final pts = <Offset>[
     g.left(uc - halfW, 0),

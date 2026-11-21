@@ -367,8 +367,11 @@ ThemeData vintageTheme() {
     ),
     visualDensity: VisualDensity.compact,
     splashFactory: NoSplash.splashFactory,
-    highlightColor: Colors.transparent,
-    hoverColor: Colors.transparent,
+    // destaque dos itens de menu e de lista (os botões têm o hover deles): mostarda clara ao
+    // passar o mouse e um pouco mais forte ao clicar
+    hoverColor: Vintage.hotBottom,
+    highlightColor: Vintage.mustard.withValues(alpha: .35),
+    focusColor: Vintage.hotBottom,
   );
   ButtonStyle button() => ButtonStyle(
         backgroundColor: const WidgetStatePropertyAll(Colors.transparent),

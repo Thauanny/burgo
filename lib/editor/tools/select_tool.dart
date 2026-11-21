@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
+import '../../domain/map_item.dart';
 import '../../domain/placement_preview.dart';
 import '../tool.dart';
 
@@ -19,7 +20,8 @@ class SelectTool extends Tool {
     if (item == null) return false;
     host.select(item);
     host.beginEdit();
-    _grabOffset = Point(tile.x - item.x, tile.y - item.y);
+    // objeto de 1 tile (inclusive quem anda e foi pego longe de casa) vai para onde o mouse está
+    _grabOffset = item is Prop ? const Point(0, 0) : Point(tile.x - item.x, tile.y - item.y);
     return true;
   }
 

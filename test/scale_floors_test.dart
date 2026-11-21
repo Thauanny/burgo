@@ -118,6 +118,7 @@ void main() {
           // só prédios urbanos: casas e celeiros também aparecem nos sítios
           if (const {
             BuildingKind.farmhouse,
+            BuildingKind.countryHouse,
             BuildingKind.barn,
             BuildingKind.silo,
             BuildingKind.cottage,
@@ -387,7 +388,9 @@ void main() {
 
       e.activeDungeon!.onAscend!();
       expect(e.activeDungeon, isNull);
-      expect(e.selectedEntrance?.id, entrance.id);
+      // ao subir, nada fica selecionado e o painel volta para a aba Mapa
+      expect(e.selected, isNull);
+      expect(e.pendingPanelTab, 0);
 
       e.descend(entrance.id);
       expect(e.activeDungeon, isNotNull);
@@ -431,9 +434,11 @@ void main() {
       final id = e.selectedEntrance!.id;
       e.createDungeonAndDescend(id);
       e.ascend();
-      e.deleteSelected();
+      // apagar o piso (seção Pisos) leva a masmorra e a entrada juntas
+      e.removeFloor(id);
       final saved = (e.toJson()['dungeons'] as List);
       expect(saved, isEmpty);
+      expect(e.city.props.where((p) => p.type == PropType.dungeonEntrance), isEmpty);
     });
 
     test(

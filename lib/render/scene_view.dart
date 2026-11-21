@@ -50,4 +50,18 @@ abstract interface class SceneView {
 
   /// Pré-visualização da ferramenta ativa sob o cursor, se houver.
   PlacementPreview? get preview;
+
+  /// Item que mostra as setas de girar: o selecionado ou o último colocado.
+  MapItem? get rotatable;
+
+  /// Seta de girar sob o mouse (-1 ou +1), para destacá-la.
+  int? get hoveredHandle;
+
+  /// Zoom ou arrasto em andamento: o desenho pode economizar até a câmera parar.
+  bool get interacting;
+
+  /// Pode pular os recortes finos (a casa da frente redesenhada por cima do boneco atrás dela):
+  /// só com o mapa tão afastado que os bonecos têm poucos pixels. Sem o recorte, quem anda atrás
+  /// de uma casa aparece por cima do telhado. Nunca numa imagem exportada.
+  bool get lowDetail;
 }

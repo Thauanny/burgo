@@ -48,9 +48,16 @@ abstract interface class ToolHost {
   RoadKind get roadKind;
   WallKind get wallKind;
 
+  /// Na ferramenta Muros: põe o portão do tipo escolhido em vez de um trecho de muro.
+  bool get wallGate;
+
   /// Objeto de fazenda escolhido na ferramenta Fazenda (cerca, feno, animal...); nulo =
   /// plantação.
   PropType? get farmProp;
+
+  /// Construção da fazenda escolhida na ferramenta Fazenda (casa de campo, celeiro, silo...);
+  /// nula = plantação ou objeto.
+  BuildingKind? get farmBuilding;
 
   /// Raio de movimento com que nascem os seres vivos postos à mão (nulo = o padrão).
   int? roamDefault(PropType type);

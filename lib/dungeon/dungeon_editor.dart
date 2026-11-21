@@ -10,6 +10,7 @@ import '../geometry/iso.dart';
 import '../persistence/dungeon_codec.dart';
 import '../project/floor_navigator.dart';
 import '../project/project_editor.dart';
+import '../project/share_link.dart' show MapRecipe;
 import '../render/dungeon/dungeon_scene.dart';
 import '../systems/dungeon_profile.dart';
 import '../systems/dungeon_profiles.dart';
@@ -121,7 +122,17 @@ class DungeonEditor extends ChangeNotifier
       profile: profile,
       density: density));
 
+  int _edits = 0;
+
+  @override
+  int get contentVersion => _edits;
+
+  /// A masmorra vai inteira no link (não tem receita curta).
+  @override
+  MapRecipe? get shareRecipe => null;
+
   void generate({int? seed}) {
+    _edits++;
     _history.record(dungeon);
     dungeon = _make(seed ?? _newSeed());
     revision++;
@@ -195,6 +206,7 @@ class DungeonEditor extends ChangeNotifier
   /// Começa um gesto de pintura/colocação: guarda o estado e decide se o gesto pinta ou apaga.
   void beginGesture(Point<int> cell) {
     if (tool == DungeonTool.pan) return;
+    _edits++;
     _history.record(dungeon);
     _paintOn = switch (tool) {
       DungeonTool.carve => !dungeon.isOpen(cell.x, cell.y),
@@ -257,12 +269,14 @@ class DungeonEditor extends ChangeNotifier
 
   @override
   void undo() {
+    _edits++;
     final r = _history.undo(dungeon);
     if (r != null) _restore(r.$1);
   }
 
   @override
   void redo() {
+    _edits++;
     final r = _history.redo(dungeon);
     if (r != null) _restore(r.$1);
   }

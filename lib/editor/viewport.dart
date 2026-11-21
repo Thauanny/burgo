@@ -45,10 +45,17 @@ class Viewport extends ChangeNotifier {
   void requestFit() => _isFitted = false;
 
   void moveTo(Offset newPan, double newZoom) {
+    if (newPan != pan || newZoom != zoom) _movedAt = DateTime.now();
     pan = newPan;
     zoom = newZoom;
     notifyListeners();
   }
+
+  DateTime _movedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// A câmera mexeu há pouco (zoom ou arrasto em andamento)? Enquanto isso o desenho economiza:
+  /// não refaz as imagens de cache na resolução nova nem os recortes finos dos bonecos.
+  bool get interacting => DateTime.now().difference(_movedAt) < const Duration(milliseconds: 250);
 
   /// Zoom mantendo o ponto [focal] (em coordenadas de tela) parado.
   void zoomAround(Offset focal, double newZoom) => pinch(

@@ -634,70 +634,159 @@ void _colossus(Canvas cv, Building b, double t) {
   final k = (b.floors * Iso.floorH - 22) / ref;
   cv.save();
   cv.translate(base.dx, base.dy);
-  cv.scale(k * 1.05);
+  cv.scale(k * 1.32);
   cv.translate(-base.dx, -base.dy);
   _goddess(cv, base, ref);
   cv.restore();
 }
 
-/// A deusa de mármore: manto longo, braços erguidos em V, cabelos compridos e halo.
+/// A deusa Valkaria em mármore, como nas descrições de Tormenta: uma mulher humana de
+/// joelhos, braços erguidos e olhar voltado para o céu, sem desgaste algum, com desenhos
+/// dourados serpenteando pelo corpo. Os dois joelhos apoiados no chão, à frente; as coxas
+/// sobem até o quadril e as solas dos pés aparecem atrás. Pernas nuas, só um pano no quadril e
+/// uma faixa no peito. Os braços se abrem para cima, em diagonal, como quem recebe o povo.
+/// Desenhada de frente numa altura de referência [height], com a luz vindo da esquerda.
 void _goddess(Canvas cv, Offset base, double height) {
-  const marble = Color(0xFFE9EEF3);
-  const shadow = Color(0xFFB7C3D0);
-  final head = base.translate(0, -height * .86);
-  cv.drawCircle(head, 26, Paint()..color = const Color.fromRGBO(120, 190, 235, .22));
-  cv.drawCircle(head, 17, Paint()..color = const Color.fromRGBO(150, 210, 245, .28));
-  final arm = Paint()
-    ..color = marble
-    ..strokeWidth = 7
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
-  final armShade = Paint()
-    ..color = shadow
-    ..strokeWidth = 8.6
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
-  final shoulder = base.translate(0, -height * .64);
+  const marble = Color(0xFFF2F4F7), mid = Color(0xFFDCE1E8), deep = Color(0xFFB2BCCA);
+  const line = Color(0xFF7F8B9B), gold = Color(0xFFE2B84A), goldDeep = Color(0xFFB08A2E);
+  final u = height / 124;
+  Offset p(double dx, double dy) => base.translate(dx * u, dy * u);
+  Paint fill(Rect r, {bool right = false}) => Paint()
+    ..shader = LinearGradient(colors: right ? const [mid, deep] : const [marble, mid, deep], stops: right ? null : const [0, .6, 1])
+        .createShader(r);
+  Paint stroke(Color c, double w) => outline(c, w * u);
+  Path poly(List<(double, double)> pts, {bool curve = true}) {
+    final path = Path()..moveTo(p(pts.first.$1, pts.first.$2).dx, p(pts.first.$1, pts.first.$2).dy);
+    for (var k = 1; k < pts.length; k++) {
+      final a = p(pts[k].$1, pts[k].$2);
+      path.lineTo(a.dx, a.dy);
+    }
+    return path..close();
+  }
+
+  void serpent(List<(double, double)> pts, {double w = 1.1}) {
+    final path = Path()..moveTo(p(pts[0].$1, pts[0].$2).dx, p(pts[0].$1, pts[0].$2).dy);
+    for (var k = 1; k + 2 < pts.length + 1; k += 3) {
+      final a = p(pts[k].$1, pts[k].$2), b = p(pts[k + 1].$1, pts[k + 1].$2), c = p(pts[k + 2].$1, pts[k + 2].$2);
+      path.cubicTo(a.dx, a.dy, b.dx, b.dy, c.dx, c.dy);
+    }
+    cv.drawPath(path, stroke(gold, w));
+  }
+
+  cv.drawCircle(p(0, -60), 52 * u, Paint()..color = const Color.fromRGBO(255, 244, 214, .14));
+
+  // solas dos pés, atrás dos joelhos (as pernas dobradas por baixo do corpo)
   for (final sgn in [-1.0, 1.0]) {
-    final elbow = shoulder.translate(sgn * 16, -height * .1);
-    final hand = shoulder.translate(sgn * 24, -height * .36);
-    final path = Path()
-      ..moveTo(shoulder.dx + sgn * 5, shoulder.dy)
-      ..quadraticBezierTo(elbow.dx + sgn * 6, elbow.dy, hand.dx, hand.dy);
-    cv.drawPath(path, armShade);
-    cv.drawPath(path, arm);
+    final sole = Path()..addOval(Rect.fromCenter(center: p(sgn * 17, -8), width: 9 * u, height: 5 * u));
+    cv.drawPath(sole, Paint()..color = deep);
+    cv.drawPath(sole, stroke(line, .9));
+    // canela deitada, saindo de trás da coxa
+    cv.drawPath(poly([(sgn * 8, -2), (sgn * 15, -5), (sgn * 18, -10), (sgn * 11, -9)]), Paint()..color = mid);
   }
-  final robe = Path()
-    ..moveTo(base.dx - 24, base.dy)
-    ..quadraticBezierTo(base.dx - 15, base.dy - height * .38, base.dx - 8, shoulder.dy)
-    ..lineTo(base.dx + 8, shoulder.dy)
-    ..quadraticBezierTo(base.dx + 15, base.dy - height * .38, base.dx + 24, base.dy)
-    ..close();
-  cv.drawPath(
-      robe,
-      Paint()
-        ..shader = LinearGradient(colors: [marble, shade(marble, -.02), shadow], stops: const [0, .55, 1])
-            .createShader(robe.getBounds()));
-  cv.drawPath(robe, outline(const Color(0xFF8E9BA8), 1.2));
-  final fold = outline(const Color(0xFF9FAEBD), 1);
-  for (final f in [-.6, -.25, .1, .45, .75]) {
-    cv.drawLine(Offset(base.dx + 22 * f, base.dy - 2),
-        Offset(base.dx + 7 * f, shoulder.dy + 6), fold);
-  }
-  cv.drawLine(shoulder, head.translate(0, 6), arm..strokeWidth = 5);
+  // cabelos longos caindo pelas costas
   final hair = Path()
-    ..moveTo(head.dx - 8, head.dy - 2)
-    ..quadraticBezierTo(head.dx - 15, head.dy + height * .22, head.dx - 10, head.dy + height * .34)
-    ..lineTo(head.dx + 10, head.dy + height * .34)
-    ..quadraticBezierTo(head.dx + 15, head.dy + height * .22, head.dx + 8, head.dy - 2)
+    ..moveTo(p(-6, -74).dx, p(-6, -74).dy)
+    ..cubicTo(p(-17, -66).dx, p(-17, -66).dy, p(-18, -46).dx, p(-18, -46).dy, p(-14, -32).dx, p(-14, -32).dy)
+    ..lineTo(p(14, -32).dx, p(14, -32).dy)
+    ..cubicTo(p(18, -46).dx, p(18, -46).dy, p(17, -66).dx, p(17, -66).dy, p(6, -74).dx, p(6, -74).dy)
     ..close();
-  cv.drawPath(hair, Paint()..color = const Color(0xFF9DB4CC));
-  cv.drawPath(hair, outline(const Color(0xFF6F86A0), 1));
-  cv.drawCircle(head, 8, Paint()..color = marble);
-  cv.drawCircle(head, 8, outline(const Color(0xFF8E9BA8), 1.2));
-  for (var i = -2; i <= 2; i++) {
-    cv.drawLine(head.translate(i * 4.0, -8), head.translate(i * 6.5, -15),
-        outline(const Color(0xFFF2C94C), 1.4));
+  cv.drawPath(hair, fill(hair.getBounds()));
+  cv.drawPath(hair, stroke(line, 1));
+  for (final k in [-11.0, -5.0, 5.0, 11.0]) {
+    cv.drawPath(
+        Path()
+          ..moveTo(p(k * .45, -70).dx, p(k * .45, -70).dy)
+          ..quadraticBezierTo(p(k * 1.45, -52).dx, p(k * 1.45, -52).dy, p(k, -35).dx, p(k, -35).dy),
+        stroke(deep, .8));
+  }
+
+  // braços abertos para cima, em diagonal, mãos abertas (antes do tronco)
+  for (final sgn in [-1.0, 1.0]) {
+    final shoulder = p(sgn * 12, -55), elbow = p(sgn * 26, -70), wrist = p(sgn * 39, -86);
+    final arm = Path()
+      ..moveTo(shoulder.dx, shoulder.dy)
+      ..quadraticBezierTo(p(sgn * 20, -64).dx, p(sgn * 20, -64).dy, elbow.dx, elbow.dy)
+      ..quadraticBezierTo(p(sgn * 33, -77).dx, p(sgn * 33, -77).dy, wrist.dx, wrist.dy);
+    cv.drawPath(arm, stroke(line, 8.6));
+    cv.drawPath(
+        arm,
+        Paint()
+          ..color = sgn < 0 ? marble : mid
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6.8 * u
+          ..strokeCap = StrokeCap.round);
+    // mão aberta, palma para cima, dedos se abrindo
+    final palm = Rect.fromCenter(center: p(sgn * 41.5, -89), width: 7 * u, height: 6 * u);
+    cv.drawOval(palm, Paint()..color = sgn < 0 ? marble : mid);
+    cv.drawOval(palm, stroke(line, .9));
+    for (var f = 0; f < 4; f++) {
+      final a = -pi / 2 + sgn * (.25 + f * .22);
+      final o = p(sgn * 42, -91);
+      cv.drawLine(o, o + Offset(cos(a), sin(a)) * (5.5 - (f - 1.5).abs() * .6) * u, stroke(line, 1.4));
+    }
+    cv.drawLine(p(sgn * 39, -88), p(sgn * 36, -93), stroke(line, 1.4)); // polegar
+    serpent([(sgn * 14, -58), (sgn * 22, -62), (sgn * 22, -70), (sgn * 30, -74), (sgn * 34, -76), (sgn * 33, -82), (sgn * 38, -85)]);
+  }
+
+  // coxas: os joelhos no chão, à frente, subindo até o quadril
+  for (final sgn in [-1.0, 1.0]) {
+    final thigh = Path()
+      ..moveTo(p(sgn * 3, -24).dx, p(sgn * 3, -24).dy)
+      ..quadraticBezierTo(p(sgn * 2, -10).dx, p(sgn * 2, -10).dy, p(sgn * 4, -2).dx, p(sgn * 4, -2).dy)
+      ..quadraticBezierTo(p(sgn * 9, 3).dx, p(sgn * 9, 3).dy, p(sgn * 14, -1).dx, p(sgn * 14, -1).dy)
+      ..quadraticBezierTo(p(sgn * 16, -12).dx, p(sgn * 16, -12).dy, p(sgn * 14, -26).dx, p(sgn * 14, -26).dy)
+      ..close();
+    cv.drawPath(thigh, fill(thigh.getBounds(), right: sgn > 0));
+    cv.drawPath(thigh, stroke(line, 1.1));
+    // rótula do joelho
+    cv.drawArc(Rect.fromCenter(center: p(sgn * 9, -3), width: 7 * u, height: 4 * u), pi * 1.05, pi * .9, false, stroke(deep, .9));
+    serpent([(sgn * 6, -22), (sgn * 12, -18), (sgn * 6, -12), (sgn * 11, -6)], w: 1);
+  }
+
+  // tronco ereto: quadril, cintura e ombros
+  final torso = Path()
+    ..moveTo(p(-14, -56).dx, p(-14, -56).dy)
+    ..quadraticBezierTo(p(0, -58).dx, p(0, -58).dy, p(14, -56).dx, p(14, -56).dy)
+    ..quadraticBezierTo(p(12, -46).dx, p(12, -46).dy, p(9, -39).dx, p(9, -39).dy)
+    ..quadraticBezierTo(p(13, -31).dx, p(13, -31).dy, p(15, -24).dx, p(15, -24).dy)
+    ..lineTo(p(-15, -24).dx, p(-15, -24).dy)
+    ..quadraticBezierTo(p(-13, -31).dx, p(-13, -31).dy, p(-9, -39).dx, p(-9, -39).dy)
+    ..quadraticBezierTo(p(-12, -46).dx, p(-12, -46).dy, p(-14, -56).dx, p(-14, -56).dy)
+    ..close();
+  cv.drawPath(torso, fill(torso.getBounds()));
+  cv.drawPath(torso, stroke(line, 1.1));
+  serpent([(-9, -50), (-2, -46), (-8, -40), (-1, -33)]);
+  serpent([(9, -49), (3, -44), (10, -38), (4, -30)]);
+  // faixa no peito, presa por um broche
+  final wrap = poly([(-13, -54), (13, -54), (12, -48), (0, -46), (-12, -48)]);
+  cv.drawPath(wrap, Paint()..color = mid);
+  cv.drawPath(wrap, stroke(line, .9));
+  cv.drawCircle(p(0, -50), 1.8 * u, Paint()..color = gold);
+  // pano no quadril, com a ponta caindo entre as coxas, barra dourada
+  final cloth = poly([(-15, -28), (15, -28), (16, -21), (5, -19), (3, -7), (0, -5), (-3, -7), (-5, -19), (-16, -21)]);
+  cv.drawPath(cloth, fill(cloth.getBounds()));
+  cv.drawPath(cloth, stroke(line, 1));
+  cv.drawLine(p(-15.5, -24), p(15.5, -24), stroke(goldDeep, 1.4));
+  for (final k in [-2.0, 0.0, 2.0]) {
+    cv.drawLine(p(k, -18), p(k * .7, -7), stroke(deep, .8));
+  }
+
+  // pescoço e cabeça erguida: olhos fechados, rosto voltado para o céu
+  cv.drawPath(poly([(-3.4, -55), (-3, -62), (3, -62), (3.4, -55)]), Paint()..color = mid);
+  final face = Rect.fromCenter(center: p(0, -69), width: 13 * u, height: 15 * u);
+  cv.drawOval(face, fill(face));
+  cv.drawOval(face, stroke(line, 1.1));
+  for (final sgn in [-1.0, 1.0]) {
+    cv.drawArc(Rect.fromCenter(center: p(sgn * 2.8, -72), width: 3.4 * u, height: 2 * u), 0, pi, false, stroke(line, .9));
+  }
+  cv.drawLine(p(-1.1, -66), p(1.1, -66), stroke(line, .8));
+  // diadema dourado e raios
+  cv.drawArc(Rect.fromCenter(center: p(0, -75), width: 13 * u, height: 5.5 * u), pi, pi, false, stroke(gold, 1.6));
+  for (var k = -3; k <= 3; k++) {
+    final a = -pi / 2 + k * .27;
+    final o = p(0, -76);
+    cv.drawLine(o + Offset(cos(a), sin(a)) * 8.5 * u, o + Offset(cos(a), sin(a)) * (14 + (k.isEven ? 3 : 0)) * u,
+        stroke(gold, 1.2));
   }
 }
 

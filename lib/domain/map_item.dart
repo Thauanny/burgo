@@ -25,6 +25,7 @@ final class Building extends MapItem {
     this.chimney = false,
     this.name = 'Casa',
     this.kind = BuildingKind.house,
+    this.turn = 0,
   });
 
   final BuildingKind kind;
@@ -33,6 +34,17 @@ final class Building extends MapItem {
   final Color wall, roofColor;
   final bool chimney;
   final String name;
+
+  /// Para onde a frente (porta) está virada, em passos de 90° no sentido horário:
+  /// 0 = sul (face da esquerda), 1 = oeste, 2 = norte, 3 = leste (face da direita).
+  /// Cada passo troca a largura pela profundidade.
+  final int turn;
+
+  /// Desenho espelhado (frente para oeste ou leste).
+  bool get flip => turn.isOdd;
+
+  /// A frente fica para trás (norte ou oeste) e não aparece na vista: sem porta à mostra.
+  bool get back => turn == 1 || turn == 2;
 
   bool occupies(int tx, int ty) =>
       tx >= x && tx < x + width && ty >= y && ty < y + depth;
@@ -50,6 +62,7 @@ final class Building extends MapItem {
     bool? chimney,
     String? name,
     BuildingKind? kind,
+    int? turn,
   }) =>
       Building(
         id: id ?? this.id,
@@ -64,6 +77,7 @@ final class Building extends MapItem {
         chimney: chimney ?? this.chimney,
         name: name ?? this.name,
         kind: kind ?? this.kind,
+        turn: turn ?? this.turn,
       );
 
   @override
@@ -78,8 +92,14 @@ final class Prop extends MapItem {
       required super.y,
       required this.type,
       this.race,
-      this.roam});
+      this.roam,
+      this.turn = 0});
   final PropType type;
+
+  /// Giro do objeto em passos de 90° (0 a 3); nos passos ímpares o desenho fica espelhado.
+  final int turn;
+
+  bool get flip => turn.isOdd;
 
   /// Raio (em blocos, contando só os 4 sentidos) em que o ser vivo pode andar a partir do
   /// seu tile. Nulo = o padrão ([defaultRoam]); 0 = fica parado no lugar.
@@ -94,15 +114,16 @@ final class Prop extends MapItem {
   final PropType? race;
 
   @override
-  Prop movedTo(int x, int y) => Prop(id: id, x: x, y: y, type: type, race: race, roam: roam);
+  Prop movedTo(int x, int y) => Prop(id: id, x: x, y: y, type: type, race: race, roam: roam, turn: turn);
 
-  Prop copyWith({PropType? type, PropType? race, bool clearRace = false, int? roam}) => Prop(
+  Prop copyWith({PropType? type, PropType? race, bool clearRace = false, int? roam, int? turn}) => Prop(
       id: id,
       x: x,
       y: y,
       type: type ?? this.type,
       race: clearRace ? null : race ?? this.race,
-      roam: roam ?? this.roam);
+      roam: roam ?? this.roam,
+      turn: turn ?? this.turn);
 }
 
 /// Plantação ou pasto ocupando `width × depth` tiles, com cerca.

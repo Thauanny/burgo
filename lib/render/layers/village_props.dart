@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/painting.dart' show Alignment, HSVColor, LinearGradient;
 import '../../domain/city_types.dart';
+import '../../geometry/iso.dart';
 import '../draw_helpers.dart';
 import 'building_kit.dart' show cylinder;
 import 'prop_renderer.dart';
@@ -92,46 +93,70 @@ void _grave(PropContext c) {
 /// Entrada de masmorra: arco de pedra com escada descendo para a escuridão, tocha acesa e uma seta
 /// pulsando para baixo, para ser vista de longe no piso de cima.
 void _dungeonEntrance(PropContext c) {
-  const stone = Color(0xFFB4AEA2);
-  c.shadowOval(c.o, 46, 22);
-  // base de pedra e a boca escura
-  c.box(-.42, -.38, .84, .76, 0, 5, shade(stone, -.05));
-  final mouth = Path()
-    ..moveTo(c.at(-.22, .38, 5).dx, c.at(-.22, .38, 5).dy)
-    ..lineTo(c.at(.22, .38, 5).dx, c.at(.22, .38, 5).dy)
-    ..lineTo(c.at(.22, .38, 24).dx, c.at(.22, .38, 24).dy)
-    ..quadraticBezierTo(c.at(0, .38, 34).dx, c.at(0, .38, 34).dy,
-        c.at(-.22, .38, 24).dx, c.at(-.22, .38, 24).dy)
-    ..close();
-  c.cv.drawPath(mouth, c.fill(const Color(0xFF14101A)));
-  c.cv.drawPath(mouth, c.stroke(shade(stone, -.3), 1.6));
-  // degraus descendo
-  for (var i = 0; i < 3; i++) {
-    final z = 5.0 - i * 1.6;
-    c.cv.drawLine(c.at(-.2, .38, z + 1), c.at(.2, .38, z + 1),
-        c.stroke(const Color(0xFF5A5560), 1.4));
+  const stone = Color(0xFFB4AEA2), dark = Color(0xFF14101A);
+  final cv = c.cv;
+  const z0 = .6; // tudo rente ao chão
+  c.shadowOval(c.o, 44, 16);
+  // lajes no nível do chão em volta da boca
+  final slab = c.topFace(-.44, -.4, .88, .8, z0);
+  cv.drawPath(slab, c.fill(shade(stone, -.04)));
+  cv.drawPath(slab, c.stroke(shade(stone, -.35), 1));
+  final joint = c.stroke(shade(stone, -.28), .6);
+  for (final u in const [-.2, .05, .28]) {
+    cv.drawLine(c.at(u, -.4, z0), c.at(u, .4, z0), joint);
   }
-  // pilares do arco
-  c.box(-.36, .3, .14, .14, 5, 28, stone);
-  c.box(.22, .3, .14, .14, 5, 28, stone);
+  cv.drawLine(c.at(-.44, .18, z0), c.at(.44, .18, z0), joint);
+  // pórtico de pedra atrás da boca: dois pilares, arco e pedra-chave
+  const hx0 = -.24, hy0 = -.14, hw = .48, hd = .48;
+  c.box(hx0 - .12, hy0 - .14, .12, .12, z0, 25, stone);
+  c.box(hx0 + hw, hy0 - .14, .12, .12, z0, 25, stone);
+  Offset a(double u, double z) => c.at(u, hy0 - .08, z);
+  final arch = Path()
+    ..moveTo(a(hx0 - .12, 24).dx, a(hx0 - .12, 24).dy)
+    ..quadraticBezierTo(a((hx0 + hx0 + hw) / 2, 38).dx, a((hx0 + hx0 + hw) / 2, 38).dy,
+        a(hx0 + hw + .12, 24).dx, a(hx0 + hw + .12, 24).dy)
+    ..lineTo(a(hx0 + hw + .12, 28.5).dx, a(hx0 + hw + .12, 28.5).dy)
+    ..quadraticBezierTo(a((hx0 + hx0 + hw) / 2, 43).dx, a((hx0 + hx0 + hw) / 2, 43).dy,
+        a(hx0 - .12, 28.5).dx, a(hx0 - .12, 28.5).dy)
+    ..close();
+  cv.drawPath(arch, c.fill(shade(stone, .04)));
+  cv.drawPath(arch, c.stroke(shade(stone, -.4), 1));
+  final key = a((hx0 + hx0 + hw) / 2, 33);
+  cv.drawRect(Rect.fromCenter(center: key, width: 5, height: 7), c.fill(shade(stone, -.08)));
+  // a boca no chão, com as paredes e os degraus descendo para o escuro
+  final hole = c.topFace(hx0, hy0, hw, hd, z0);
+  cv.drawPath(hole, c.fill(dark));
+  cv.save();
+  cv.clipPath(hole);
+  final wall = Path()..addPolygon([c.at(hx0, hy0, z0), c.at(hx0 + hw, hy0, z0), c.at(hx0 + hw, hy0, -22), c.at(hx0, hy0, -22)], true);
+  cv.drawPath(wall, c.fill(shade(stone, -.45)));
+  final side = Path()..addPolygon([c.at(hx0, hy0, z0), c.at(hx0, hy0 + hd, z0), c.at(hx0, hy0 + hd, -22), c.at(hx0, hy0, -22)], true);
+  cv.drawPath(side, c.fill(shade(stone, -.35)));
+  for (var i = 0; i < 5; i++) {
+    final z = -i * 3.4;
+    final y = hy0 + hd - (i + 1) * .09;
+    final tread = c.topFace(hx0, y, hw, .09, z);
+    cv.drawPath(tread, c.fill(Color.lerp(shade(stone, -.15), dark, i / 5)!));
+    cv.drawLine(c.at(hx0, y + .09, z), c.at(hx0 + hw, y + .09, z), c.stroke(Color.lerp(shade(stone, -.4), dark, i / 5)!, .8));
+  }
+  cv.restore();
+  cv.drawPath(hole, c.stroke(shade(stone, -.45), 1.4));
   // tocha à direita, com chama animada
-  final torch = c.at(.34, .1, 20);
-  c.cv.drawLine(c.at(.34, .1, 6), torch, c.stroke(const Color(0xFF6B4A33), 2));
+  final torch = c.at(.36, .12, 20);
+  cv.drawLine(c.at(.36, .12, z0), torch, c.stroke(const Color(0xFF6B4A33), 2));
   final flick = .8 + .2 * sin(c.time * 9 + c.phase);
-  c.cv.drawCircle(torch.translate(0, -3), 15 * flick,
-      c.fill(const Color.fromRGBO(255, 170, 70, .18)));
-  c.cv.drawCircle(
-      torch.translate(0, -3), 3.4 * flick, c.fill(const Color(0xFFFFB347)));
-  // seta para baixo, pulsando acima da entrada
+  cv.drawCircle(torch.translate(0, -3), 15 * flick, c.fill(const Color.fromRGBO(255, 170, 70, .18)));
+  cv.drawCircle(torch.translate(0, -3), 3.4 * flick, c.fill(const Color(0xFFFFB347)));
+  // seta para baixo, pulsando logo acima do arco
   final bob = sin(c.time * 3 + c.phase) * 3;
-  final tip = c.o.translate(0, -52 + bob);
+  final tip = a((hx0 + hx0 + hw) / 2, 50).translate(0, bob);
   final arrow = Path()
     ..moveTo(tip.dx - 7, tip.dy - 8)
     ..lineTo(tip.dx + 7, tip.dy - 8)
     ..lineTo(tip.dx, tip.dy + 4)
     ..close();
-  c.cv.drawPath(arrow, c.fill(const Color(0xFFE0A93B)));
-  c.cv.drawPath(arrow, c.stroke(const Color(0xFF2B2A33), 1.4));
+  cv.drawPath(arrow, c.fill(const Color(0xFFE0A93B)));
+  cv.drawPath(arrow, c.stroke(const Color(0xFF2B2A33), 1.4));
 }
 
 /// Lanterna medieval: poste de madeira com um braço e a lanterna de vela pendurada.
@@ -368,22 +393,105 @@ void _eclipse(PropContext c) {
 }
 
 /// Ruína: pedaço de muro de pedra quebrado, com o topo irregular e pedras caídas ao lado.
+/// Ruína antiga: piso de lajes rachado, um pedaço de muro desmoronado em degraus com o
+/// resto de uma janela em arco, uma coluna partida, um toco de coluna, um tambor de coluna
+/// caído, entulho, musgo e hera.
 void _ruin(PropContext c) {
-  c.shadowOval(c.o, 30, 12);
-  const stone = Color(0xFFA9A395);
-  final h = 10.0 + (c.hs % 4) * 5;
-  final along = c.hs.isEven;
-  if (along) {
-    c.box(-.42, -.08, .3, .16, 0, h, stone);
-    c.box(-.1, -.08, .26, .16, 0, h * .55, shade(stone, -.04));
-    c.box(.18, -.08, .2, .16, 0, h * .3, stone);
-  } else {
-    c.box(-.08, -.42, .16, .3, 0, h, stone);
-    c.box(-.08, -.1, .16, .26, 0, h * .55, shade(stone, -.04));
+  final cv = c.cv;
+  c.shadowOval(c.o, 40, 16);
+  const stone = Color(0xFFB3AC9C), dark = Color(0xFF6F685C);
+  final moss = c.fill(const Color(0xFF6E9A55)), mossLight = c.fill(const Color(0xFF8DBA6A));
+  final var1 = (c.hs % 5) * 1.5;
+  // piso de lajes, quebrado nas bordas e com rachaduras
+  c.box(-.42, -.36, .84, .72, 0, 2, shade(stone, -.08));
+  final crack = c.stroke(shade(stone, -.45), .7);
+  cv.drawLine(c.at(-.3, .1, 2), c.at(-.05, .02, 2), crack);
+  cv.drawLine(c.at(-.05, .02, 2), c.at(.1, .2, 2), crack);
+  cv.drawLine(c.at(.15, -.25, 2), c.at(.3, -.05, 2), crack);
+  // muro desmoronado em degraus (atrás)
+  const steps = [(-.42, -.3, 26.0), (-.3, -.18, 30.0), (-.18, -.06, 21.0), (-.06, .06, 13.0), (.06, .14, 7.0)];
+  for (final (u0, u1, h) in steps) {
+    c.box(u0, -.3, u1 - u0, .14, 2, h + var1 * (u0 < -.2 ? 1 : 0), u0.isNegative ? stone : shade(stone, -.03));
   }
-  for (final (dx, dy) in const [(.25, .3), (-.3, .25), (.1, -.35)]) {
-    c.box(dx - .06, dy - .06, .12, .12, 0, 3, shade(stone, -.08));
+  // juntas das pedras na face da frente do muro
+  final joint = c.stroke(shade(stone, -.32), .6);
+  for (var z = 7.0; z < 28; z += 5) {
+    for (final (u0, u1, h) in steps) {
+      if (z < h) cv.drawLine(c.at(u0, -.16, z), c.at(u1, -.16, z), joint);
+    }
   }
-  final moss = c.fill(const Color(0xFF6E9A55));
-  c.cv.drawCircle(c.at(-.3, 0, h).translate(2, 1), 2.4, moss);
+  // resto de janela em arco, escura
+  final arch = Path()
+    ..moveTo(c.at(-.36, -.16, 11).dx, c.at(-.36, -.16, 11).dy)
+    ..lineTo(c.at(-.22, -.16, 11).dx, c.at(-.22, -.16, 11).dy)
+    ..lineTo(c.at(-.22, -.16, 19).dx, c.at(-.22, -.16, 19).dy)
+    ..quadraticBezierTo(c.at(-.29, -.16, 25).dx, c.at(-.29, -.16, 25).dy, c.at(-.36, -.16, 19).dx,
+        c.at(-.36, -.16, 19).dy)
+    ..close();
+  cv.drawPath(arch, c.fill(const Color(0xFF3B362F)));
+  cv.drawPath(arch, c.stroke(dark, .9));
+  // hera descendo pelo muro
+  final ivy = c.stroke(const Color(0xFF4E7E43), 1.2);
+  final ivyPath = Path()..moveTo(c.at(-.13, -.16, 21).dx, c.at(-.13, -.16, 21).dy);
+  for (var k = 1; k <= 6; k++) {
+    final p = c.at(-.13 + (k.isEven ? .025 : -.025), -.16, 21 - k * 3.2);
+    ivyPath.lineTo(p.dx, p.dy);
+  }
+  cv.drawPath(ivyPath, ivy);
+  for (var k = 1; k <= 5; k++) {
+    cv.drawCircle(c.at(-.13 + (k.isEven ? .03 : -.03), -.16, 21 - k * 3.4), 1.6, moss);
+  }
+  // musgo no alto dos degraus
+  for (final (u0, u1, h) in steps.take(3)) {
+    cv.drawOval(Rect.fromCenter(center: c.at((u0 + u1) / 2, -.23, h + var1 * (u0 < -.2 ? 1 : 0)), width: 7, height: 3), moss);
+  }
+
+  // coluna partida (atrás, à direita): fuste canelado, topo quebrado em ziguezague
+  void column(double u, double v, double h, double r) {
+    final x = c.cx + u, y = c.cy + v;
+    cylinder(cv, x, y, r, 2, h, stone, cap: false, courses: 0);
+    // caneluras
+    for (final k in const [-.5, 0.0, .5]) {
+      cv.drawLine(Iso.pt(x + k * r * .9, y + r * .9, 4), Iso.pt(x + k * r * .9, y + r * .9, h - 3), c.stroke(shade(stone, -.25), .6));
+    }
+    // topo quebrado
+    final top = Iso.pt(x, y, h);
+    final (rx, ry) = Iso.ellipse(r);
+    final jag = Path()..moveTo(top.dx - rx, top.dy);
+    for (var k = 1; k <= 6; k++) {
+      final t = k / 6;
+      jag.lineTo(top.dx - rx + 2 * rx * t, top.dy - (k.isEven ? 4.5 : 1.0) + ry * sin(t * pi) * .6);
+    }
+    jag
+      ..lineTo(top.dx + rx, top.dy)
+      ..arcToPoint(Offset(top.dx - rx, top.dy), radius: Radius.elliptical(rx, ry), clockwise: true)
+      ..close();
+    cv.drawPath(jag, c.fill(shade(stone, .1)));
+    cv.drawPath(jag, c.stroke(dark, .8));
+    cv.drawOval(Rect.fromCenter(center: top.translate(1, -1), width: rx * .9, height: ry * .7), moss);
+  }
+
+  column(.25, -.2, 24 + var1, .085);
+  // entulho atrás
+  for (final (dx, dy, s) in const [(.06, -.08, .08), (.33, .02, .06)]) {
+    c.box(dx, dy, s, s, 0, s * 40, shade(stone, -.1));
+  }
+  // toco de coluna na frente, à esquerda
+  column(-.24, .17, 9, .09);
+  // tambor de coluna caído (deitado ao longo de x)
+  c.box(.02, .14, .3, .15, 2, 8, shade(stone, -.02));
+  final end = c.at(.32, .215, 5);
+  cv.drawOval(Rect.fromCenter(center: end, width: 9, height: 11), c.fill(shade(stone, .08)));
+  cv.drawOval(Rect.fromCenter(center: end, width: 9, height: 11), c.stroke(dark, .8));
+  cv.drawOval(Rect.fromCenter(center: end, width: 3, height: 4), c.fill(shade(stone, -.15)));
+  // entulho da frente e tufos de musgo no chão
+  final hs = c.hs;
+  for (var k = 0; k < 5; k++) {
+    final dx = -.35 + ((hs >> (k * 3)) % 7) * .1, dy = .2 + ((hs >> (k * 2)) % 3) * .06;
+    final s = .045 + ((hs >> k) % 3) * .015;
+    c.box(dx, dy, s, s, 0, s * 60, shade(stone, -.06 - k * .02));
+  }
+  for (final (dx, dy) in const [(-.38, -.05), (.18, .3), (-.05, .33)]) {
+    cv.drawOval(Rect.fromCenter(center: c.at(dx, dy, 1), width: 8, height: 3.5), mossLight);
+  }
 }

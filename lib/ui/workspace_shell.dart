@@ -12,6 +12,7 @@ import 'file_menu.dart';
 import 'open_page.dart';
 import 'retro/vintage.dart';
 import 'strings.dart';
+import 'unload_guard.dart';
 
 /// Tela principal no estilo "Paint dos anos 2000": barra de título, menus, abas, área de
 /// trabalho e barra de status. Só a casca; os projetos por dentro são os mesmos.
@@ -24,6 +25,8 @@ class WorkspaceShell extends StatelessWidget {
     return ListenableBuilder(
       listenable: workspace,
       builder: (context, _) {
+        // o navegador pergunta antes de fechar a página se alguma aba não foi salva
+        setUnloadGuard(workspace.hasUnsaved);
         ProjectEditor shown() => _shown(workspace.active.editor);
         void newTab() => workspace.add(NewProject.mixed,
             systemId: workspace.active.editor.systemId);
@@ -294,6 +297,35 @@ class _TabStrip extends StatelessWidget {
   const _TabStrip({required this.workspace});
   final Workspace workspace;
 
+  /// Fecha a aba; se ela tem mudanças não salvas, pergunta antes (salvar, fechar ou cancelar).
+  Future<void> _close(BuildContext context, int i) async {
+    final tab = workspace.tabs[i];
+    if (!tab.unsaved) return workspace.close(i);
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Fechar "${tab.editor.title}"?'),
+        content: const Text('Esta aba tem mudanças que não foram salvas na biblioteca do navegador '
+            'nem exportadas.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, 'cancel'), child: const Text(Strings.cancel)),
+          TextButton(onPressed: () => Navigator.pop(context, 'discard'), child: const Text('Fechar sem salvar')),
+          FilledButton(onPressed: () => Navigator.pop(context, 'save'), child: const Text('Salvar e fechar')),
+        ],
+      ),
+    );
+    final index = workspace.tabs.indexOf(tab);
+    if (index < 0) return;
+    switch (choice) {
+      case 'save':
+        workspace.select(index);
+        await workspace.saveActiveToLibrary();
+        workspace.close(workspace.tabs.indexOf(tab));
+      case 'discard':
+        workspace.close(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -314,7 +346,7 @@ class _TabStrip extends StatelessWidget {
                   selected: i == workspace.activeIndex,
                   onTap: () => workspace.select(i),
                   onClose: workspace.tabs.length > 1
-                      ? () => workspace.close(i)
+                      ? () => _close(context, i)
                       : null,
                 ),
               ),
@@ -432,6 +464,17 @@ class _TabChip extends StatelessWidget {
                           : Icons.location_city,
                       size: 15),
                   const SizedBox(width: 6),
+                  if (tab.unsaved)
+                    const Tooltip(
+                      message: 'Não salvo: use Arquivo › Salvar no navegador ou Exportar arquivo',
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 5),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: Vintage.terracotta, shape: BoxShape.circle),
+                          child: SizedBox(width: 8, height: 8),
+                        ),
+                      ),
+                    ),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 170),
                     child: Text(editor.title,

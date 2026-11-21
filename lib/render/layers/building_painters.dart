@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/painting.dart';
 import '../../domain/city_types.dart';
+import '../../domain/era.dart';
 import '../../domain/map_item.dart';
 import '../../geometry/iso.dart';
 import '../draw_helpers.dart';
@@ -40,6 +41,8 @@ final Map<BuildingKind, BuildingPainter> buildingPainters = {
   BuildingKind.lab: _lab,
   BuildingKind.skyscraper: _skyscraper,
   BuildingKind.farmhouse: _farmhouse,
+  BuildingKind.countryHouse: _countryHouse,
+  BuildingKind.stable: _stable,
   BuildingKind.silo: _silo,
   BuildingKind.saloon: _saloon,
   ...regionalPainters,
@@ -81,6 +84,7 @@ int _doorTile(Building b) => (b.width - 1) ~/ 2;
 
 /// Toldo pequeno sobre a porta.
 void _porch(Canvas cv, Geo g, Color color) {
+  if (doorsHidden) return;
   final uc = _doorTile(g.b) + .5;
   final a = Iso.pt(g.x + uc - .3, g.y + g.d, 23),
       b = Iso.pt(g.x + uc + .3, g.y + g.d, 23);
@@ -519,112 +523,214 @@ void _towerTop(Canvas cv, Building b, double t) {
 
 // ---------------------------------------------------------------- castelo
 /// Torre redonda do castelo: pedra em fiadas, seteiras, anel de mata-cães e telhado cônico.
-void _roundTower(
-    Canvas cv, Building b, double cx, double cy, double top, Color stone) {
-  cylinder(cv, cx, cy, .5, 0, top, stone, courses: 8);
-  final (rx, ry) = Iso.ellipse(.5);
-  final slit = Paint()..color = const Color(0xFF2E3744);
-  for (final (k, z) in [(0.0, top * .45), (-.55, top * .72), (.55, top * .72)]) {
-    final p = Iso.pt(cx, cy, z).translate(rx * k, ry * (.92 - k.abs() * .3));
-    cv.drawRect(Rect.fromCenter(center: p, width: 2.6, height: 9), slit);
+/// Medidas do castelo, as mesmas no desenho e nas bandeiras.
+class _CastleLayout {
+  _CastleLayout(Building b)
+      : x = b.x.toDouble(),
+        y = b.y.toDouble(),
+        s = b.width.toDouble(),
+        sd = b.depth.toDouble(),
+        wh = Iso.floorH * 1.6 {
+    final m = min(s, sd);
+    tr = (m * .13 + .04).clamp(.42, .64).toDouble();
+    gr = tr * .64;
+    gateOff = m * .13 + .3;
+    ks = m * .46;
+    kx = x + s / 2 - ks / 2 - .12;
+    ky = y + sd * .4 - ks / 2;
+    // a torre de menagem domina: bem mais alta que as torres de canto
+    kh = wh + Iso.floorH * (b.floors + 1.5) + 34;
   }
-  // mata-cães (anel saliente) e telhado cônico
-  cylinder(cv, cx, cy, .58, top, top + 4, shade(stone, -.06), cap: false);
-  cone(cv, cx, cy, .64, top + 4, 26, b.roofColor);
+  final double x, y, s, sd, wh;
+  late final double ks, kx, ky, kh, tr, gr, gateOff;
+  static const th = .4;
+
+  /// Torres de canto: (centro x, centro y, altura).
+  List<(double, double, double)> get corners => [
+        (x + tr, y + tr, wh + 24),
+        (x + s - tr, y + tr, wh + 24),
+        (x + tr, y + sd - tr, wh + 28),
+        (x + s - tr, y + sd - tr, wh + 32),
+      ];
+
+  /// Torres da portaria, dos dois lados do portão (na muralha da frente).
+  List<(double, double, double)> get gateTowers => [
+        (x + s / 2 - gateOff, y + sd - th / 2, wh + 18),
+        (x + s / 2 + gateOff, y + sd - th / 2, wh + 18),
+      ];
+
+  /// Torrinha alta num canto da torre de menagem (a mais alta do castelo).
+  (double, double, double) get spire => (kx + ks - .22, ky + .22, kh + 26);
 }
 
+/// Torre redonda de muralha: pedra em fiadas, seteiras, mata-cães salientes e telhado cônico de ardósia.
+void _castleTower(Canvas cv, double cx, double cy, double r, double top, Color stone, Color roof) {
+  cylinder(cv, cx, cy, r, 0, top, stone, courses: 9);
+  final (rx, ry) = Iso.ellipse(r);
+  final slit = Paint()..color = const Color(0xFF2E3744);
+  for (final (k, z) in [(0.0, top * .4), (-.5, top * .66), (.5, top * .66), (0.0, top * .84)]) {
+    final p = Iso.pt(cx, cy, z).translate(rx * k, ry * (.92 - k.abs() * .3));
+    cv.drawRect(Rect.fromCenter(center: p, width: 2.4, height: 9), slit);
+  }
+  cylinder(cv, cx, cy, r * 1.16, top, top + 5, shade(stone, -.08), cap: false);
+  // mata-cães: dentinhos escuros sob o anel
+  for (var i = 0; i < 7; i++) {
+    final a = pi * .08 + i * pi * .84 / 6;
+    final p = Iso.pt(cx + cos(a) * r * 1.1, cy + sin(a) * r * 1.1, top + 1);
+    cv.drawRect(Rect.fromCenter(center: p, width: 2.2, height: 3), Paint()..color = shade(stone, -.4));
+  }
+  cone(cv, cx, cy, r * 1.24, top + 5, 30 + r * 10, roof);
+}
+
+/// Castelo medieval: pátio murado com quatro torres de canto de telhado cônico, mata-cães e
+/// ameias; uma torre de menagem bem mais alta que tudo (contrafortes, janelas ogivais acesas,
+/// guaritas nos cantos e uma torrinha com bandeira); o salão real com telhado de ardósia; a
+/// portaria com duas torres, arco, rastrilho e brasão; estandartes pendurados na muralha.
 void _castle(Canvas cv, Building b, double t) {
-  final x = b.x.toDouble(), y = b.y.toDouble();
-  const wh = Iso.floorH * 1.2;
-  final wallCol = Color.lerp(b.wall, const Color(0xFFA8A194), .8)!;
-  const th = .38;
-  final s = b.width.toDouble(), sd = b.depth.toDouble();
-  // pátio
-  fillPoly(cv, Iso.diamond(x + th, y + th, s - th * 2, sd - th * 2),
-      const Color(0xFFC8BEA2),
+  final l = _CastleLayout(b);
+  final x = l.x, y = l.y, s = l.s, sd = l.sd, wh = l.wh;
+  const th = _CastleLayout.th;
+  final stone = Color.lerp(b.wall, const Color(0xFFB3AC9E), .82)!;
+  const slate = Color(0xFF4F5A6E);
+  final roof = Color.lerp(b.roofColor, slate, .55)!;
+  const glow = Color(0xFFF2C14E), dark = Color(0xFF2E3744);
+  // base de pedra inclinada (talude) em volta de tudo: o castelo assenta numa plataforma
+  drawBox(cv, x - .1, y - .1, s + .2, sd + .2, 0, 6, shade(stone, -.1));
+  for (var u = .3; u < s; u += .6) {
+    cv.drawLine(Iso.pt(x + u, y + sd + .1, 0), Iso.pt(x + u + .05, y + sd + .1, 6), outline(shade(stone, -.3), .7));
+  }
+  // pátio de pedra
+  fillPoly(cv, Iso.diamond(x + th, y + th, s - th * 2, sd - th * 2, 6), const Color(0xFFC9C0A6),
       line: const Color(0xFFA89B7C), lw: 1);
-  // muros do fundo
-  drawBox(cv, x, y, s, th, 0, wh, wallCol);
-  drawBox(cv, x, y, th, sd, 0, wh, wallCol);
-  crenels(cv, x, y + th / 2, x + s, y + th / 2, wh, wallCol, count: 9);
-  _roundTower(cv, b, x + .55, y + .55, wh + 18, wallCol);
-  // torre de menagem
-  final kx = x + s / 2 - .75, ky = y + sd / 2 - .75;
-  const ks = 1.5;
-  final kh = wh + Iso.floorH * (b.floors - 1) + 16;
+  for (var u = 1.0; u < s - .5; u += 1) {
+    cv.drawLine(Iso.pt(x + u, y + th), Iso.pt(x + u, y + sd - th), outline(const Color(0x22000000), .6));
+  }
+  void machicolation(double x0, double y0, double x1, double y1) {
+    // faixa escura sob as ameias (os mata-cães da muralha)
+    cv.drawLine(Iso.pt(x0, y0, wh - 3), Iso.pt(x1, y1, wh - 3), outline(shade(stone, -.35), 3));
+  }
+
+  // ---- muralhas do fundo e torres de trás
+  drawBox(cv, x, y, s, th, 0, wh, stone);
+  drawBox(cv, x, y, th, sd, 0, wh, stone);
+  crenels(cv, x, y + th / 2, x + s, y + th / 2, wh, stone, count: (s * 2.4).round());
+  crenels(cv, x + th / 2, y, x + th / 2, y + sd, wh, stone, count: (sd * 2.4).round());
+  final towers = l.corners;
+  _castleTower(cv, towers[0].$1, towers[0].$2, l.tr, towers[0].$3, stone, roof);
+  _castleTower(cv, towers[1].$1, towers[1].$2, l.tr, towers[1].$3, stone, roof);
+  // ---- salão real (atrás, ao lado da torre de menagem): paredes altas e telhado íngreme
+  final hx0 = l.kx + l.ks + .12, hx1 = x + s - th - .95, hy0 = y + th + .05, hy1 = y + th + 1.05;
+  if (hx1 - hx0 > .6) {
+    final hallH = wh + 10;
+    drawBox(cv, hx0, hy0, hx1 - hx0, hy1 - hy0, 0, hallH, shade(stone, .04));
+    for (var u = hx0 + .3; u < hx1 - .15; u += .42) {
+      final p = [Iso.pt(u - .07, hy1, hallH - 22), Iso.pt(u + .07, hy1, hallH - 22), Iso.pt(u + .07, hy1, hallH - 9),
+        Iso.pt(u, hy1, hallH - 5), Iso.pt(u - .07, hy1, hallH - 9)];
+      fillPoly(cv, Iso.poly(p), glow, line: dark, lw: .8);
+    }
+    final ym = (hy0 + hy1) / 2, rise = 22.0;
+    fillPoly(cv, Iso.poly([Iso.pt(hx0 - .05, hy1 + .06, hallH), Iso.pt(hx1 + .05, hy1 + .06, hallH),
+      Iso.pt(hx1 + .05, ym, hallH + rise), Iso.pt(hx0 - .05, ym, hallH + rise)]), roof, line: shade(roof, -.35), lw: 1);
+    fillPoly(cv, Iso.poly([Iso.pt(hx1, hy1, hallH), Iso.pt(hx1, hy0, hallH), Iso.pt(hx1, ym, hallH + rise)]),
+        shade(stone, -.1), line: shade(stone, -.35), lw: 1);
+  }
+  // ---- torre de menagem
+  final kx = l.kx, ky = l.ky, ks = l.ks, kh = l.kh;
   final keep = Geo.box(b, kx, ky, ks, ks, kh);
-  shadedFace(cv, keep.leftFace(), shade(wallCol, .02),
-      line: _line(wallCol), lw: 1.4);
-  shadedFace(cv, keep.rightFace(), shade(wallCol, -.1),
-      line: _line(wallCol), lw: 1.4);
-  wallTexture(cv, keep, WallTexture.stone, wallCol);
-  fillPoly(cv, Iso.diamond(kx, ky, ks, ks, kh), shade(wallCol, .08),
-      line: _line(wallCol), lw: 1.2);
-  for (var i = 0; i < 2; i++) {
-    final z0 = 24.0 + i * 24;
-    if (z0 + 12 > kh) break;
-    for (final u in [.4, 1.1]) {
-      final p = Iso.poly([
-        keep.left(u - .09, z0),
-        keep.left(u + .09, z0),
-        keep.left(u + .09, z0 + 11),
-        keep.left(u - .09, z0 + 11)
-      ]);
-      cv.drawPath(p, Paint()..color = const Color(0xFF3A4452));
-      cv.drawPath(p, outline(shade(wallCol, .1), 1));
+  shadedFace(cv, keep.leftFace(), shade(stone, .03), line: _line(stone), lw: 1.4);
+  shadedFace(cv, keep.rightFace(), shade(stone, -.1), line: _line(stone), lw: 1.4);
+  wallTexture(cv, keep, WallTexture.stone, stone);
+  // contrafortes nos cantos e no meio das faces
+  for (final u in [0.0, ks / 2, ks]) {
+    drawBox(cv, kx + u - .07, ky + ks - .02, .14, .1, 0, kh * .55, shade(stone, -.04));
+    drawBox(cv, kx + ks - .02, ky + u - .07, .1, .14, 0, kh * .55, shade(stone, -.12));
+  }
+  // janelas ogivais acesas, andar por andar
+  for (var z = wh + 6; z < kh - 18; z += 24) {
+    for (final face in [keep.left, keep.right]) {
+      for (final u in [ks * .3, ks * .7]) {
+        final p = [face(u - .08, z), face(u + .08, z), face(u + .08, z + 10), face(u, z + 15), face(u - .08, z + 10)];
+        fillPoly(cv, Iso.poly(p), z > kh - 50 ? glow : dark, line: shade(stone, -.45), lw: .9);
+      }
     }
   }
-  crenels(cv, kx, ky + ks, kx + ks, ky + ks, kh, wallCol, count: 4);
-  crenels(cv, kx + ks, ky, kx + ks, ky + ks, kh, wallCol, count: 4);
-  // muros da frente (com portão)
-  drawBox(cv, x, y + sd - th, s, th, 0, wh, wallCol);
+  // topo: mata-cães, ameias e guaritas nos cantos
+  cv.drawPath(keep.leftFace(kh - 6, kh - 3), Paint()..color = shade(stone, -.35));
+  cv.drawPath(keep.rightFace(kh - 6, kh - 3), Paint()..color = shade(stone, -.4));
+  fillPoly(cv, Iso.diamond(kx, ky, ks, ks, kh), shade(stone, .1), line: _line(stone), lw: 1.2);
+  crenels(cv, kx, ky + ks, kx + ks, ky + ks, kh, stone, count: 5);
+  crenels(cv, kx + ks, ky, kx + ks, ky + ks, kh, stone, count: 5);
+  for (final (cx, cy) in [(kx, ky + ks), (kx + ks, ky + ks)]) {
+    cylinder(cv, cx, cy, .16, kh - 14, kh + 6, shade(stone, .02), courses: 0);
+    cone(cv, cx, cy, .2, kh + 6, 14, roof);
+  }
+  final (spx, spy, sph) = l.spire;
+  cylinder(cv, spx, spy, .2, kh, sph, shade(stone, .04), courses: 0);
+  cone(cv, spx, spy, .26, sph, 34, roof);
+  // ---- muralha da direita e torre de canto da frente à esquerda
+  drawBox(cv, x + s - th, y, th, sd, 0, wh, stone);
+  crenels(cv, x + s - th / 2, y, x + s - th / 2, y + sd, wh, stone, count: (sd * 2.4).round());
+  machicolation(x + s, y + .6, x + s, y + sd - .6);
+  _castleTower(cv, towers[2].$1, towers[2].$2, l.tr, towers[2].$3, stone, roof);
+  // ---- muralha da frente, estandartes, portaria
+  drawBox(cv, x, y + sd - th, s, th, 0, wh, stone);
+  machicolation(x + .6, y + sd, x + s - .6, y + sd);
+  crenels(cv, x, y + sd - th / 2, x + s, y + sd - th / 2, wh, stone, count: (s * 2.4).round());
+  const banners = [Color(0xFFB0303A), Color(0xFF2F4F8A)];
+  for (final (i, u) in [s * .22, s * .78].indexed) {
+    final top = Iso.pt(x + u, y + sd, wh - 7), w2 = .17;
+    final cloth = Iso.poly([Iso.pt(x + u - w2, y + sd + .01, wh - 7), Iso.pt(x + u + w2, y + sd + .01, wh - 7),
+      Iso.pt(x + u + w2, y + sd + .01, wh - 30), Iso.pt(x + u, y + sd + .01, wh - 35), Iso.pt(x + u - w2, y + sd + .01, wh - 30)]);
+    cv.drawPath(cloth, Paint()..color = banners[i % 2]);
+    cv.drawPath(cloth, outline(shade(banners[i % 2], -.4), .8));
+    cv.drawCircle(top.translate(0, 12), 3.2, Paint()..color = const Color(0xFFE6C35A));
+  }
   final gate = Geo.box(b, x, y + sd - th, s, th, wh);
   final gc = s / 2;
   final arch = Path()
-    ..moveTo(gate.left(gc - .5, 0).dx, gate.left(gc - .5, 0).dy)
-    ..lineTo(gate.left(gc - .5, 14).dx, gate.left(gc - .5, 14).dy)
-    ..quadraticBezierTo(gate.left(gc, 26).dx, gate.left(gc, 26).dy,
-        gate.left(gc + .5, 14).dx, gate.left(gc + .5, 14).dy)
-    ..lineTo(gate.left(gc + .5, 0).dx, gate.left(gc + .5, 0).dy)
+    ..moveTo(gate.left(gc - .48, 0).dx, gate.left(gc - .48, 0).dy)
+    ..lineTo(gate.left(gc - .48, 17).dx, gate.left(gc - .48, 17).dy)
+    ..quadraticBezierTo(gate.left(gc, 31).dx, gate.left(gc, 31).dy, gate.left(gc + .48, 17).dx, gate.left(gc + .48, 17).dy)
+    ..lineTo(gate.left(gc + .48, 0).dx, gate.left(gc + .48, 0).dy)
     ..close();
   cv.drawPath(arch, Paint()..color = const Color(0xFF3B2F2A));
-  cv.drawPath(arch, outline(_line(wallCol), 1.4));
-  // rastrilho: grade de ferro com pontas
+  cv.drawPath(arch, outline(_line(stone), 1.4));
   final grate = outline(const Color(0xFF6B5A4A), 1);
-  for (var u = -.4; u <= .41; u += .2) {
-    cv.drawLine(gate.left(gc + u, 0), gate.left(gc + u, 20), grate);
+  for (var u = -.38; u <= .39; u += .19) {
+    cv.drawLine(gate.left(gc + u, 6), gate.left(gc + u, 24), grate);
   }
-  for (final z in [5.0, 11.0, 17.0]) {
-    cv.drawLine(gate.left(gc - .45, z), gate.left(gc + .45, z), grate);
+  for (final z in [10.0, 16.0, 22.0]) {
+    cv.drawLine(gate.left(gc - .44, z), gate.left(gc + .44, z), grate);
   }
-  crenels(cv, x, y + sd - th / 2, x + s, y + sd - th / 2, wh, wallCol,
-      count: 9);
-  drawBox(cv, x + s - th, y, th, sd, 0, wh, wallCol);
-  crenels(cv, x + s - th / 2, y, x + s - th / 2, y + sd, wh, wallCol, count: 9);
-  // torres laterais e da frente
-  for (final (cx, cy, hh) in [
-    (x + s - .55, y + .55, wh + 14),
-    (x + .55, y + sd - .55, wh + 14),
-    (x + s - .55, y + sd - .55, wh + 22)
-  ]) {
-    _roundTower(cv, b, cx, cy, hh, wallCol);
+  // brasão sobre o portão
+  final crest = gate.left(gc, 36);
+  final shield = Path()
+    ..moveTo(crest.dx - 6, crest.dy - 6)
+    ..lineTo(crest.dx + 6, crest.dy - 6)
+    ..lineTo(crest.dx + 6, crest.dy + 1)
+    ..quadraticBezierTo(crest.dx + 6, crest.dy + 7, crest.dx, crest.dy + 9)
+    ..quadraticBezierTo(crest.dx - 6, crest.dy + 7, crest.dx - 6, crest.dy + 1)
+    ..close();
+  cv.drawPath(shield, Paint()..color = const Color(0xFFB0303A));
+  cv.drawPath(shield, outline(const Color(0xFFE6C35A), 1.4));
+  cv.drawCircle(crest.translate(0, 1), 2.2, Paint()..color = const Color(0xFFE6C35A));
+  for (final (cx, cy, hh) in l.gateTowers) {
+    _castleTower(cv, cx, cy, l.gr, hh, shade(stone, .02), roof);
   }
+  _castleTower(cv, towers[3].$1, towers[3].$2, l.tr, towers[3].$3, stone, roof);
   if (paintAnimatedParts) _castleFlags(cv, b, t);
 }
 
-/// Bandeiras do castelo (a da torre de menagem e a da torre da frente).
+/// Bandeiras do castelo: a grande, na torrinha da torre de menagem, e as das torres da frente.
 void _castleFlags(Canvas cv, Building b, double t) {
-  final x = b.x.toDouble(), y = b.y.toDouble();
-  const wh = Iso.floorH * 1.2;
-  final s = b.width.toDouble(), sd = b.depth.toDouble();
-  final kx = x + s / 2 - .75, ky = y + sd / 2 - .75;
-  const ks = 1.5;
-  final kh = wh + Iso.floorH * (b.floors - 1) + 16;
-  flag(
-      cv, Iso.pt(kx + ks / 2, ky + ks / 2, kh), 24, const Color(0xFFC8402F), t);
-  flag(cv, Iso.pt(x + s - .55, y + sd - .55, wh + 22 + 3 + 26), 14,
-      const Color(0xFF3F6FB5), t,
-      phase: 1.5);
+  final l = _CastleLayout(b);
+  final (spx, spy, sph) = l.spire;
+  flag(cv, Iso.pt(spx, spy, sph + 34), 26, const Color(0xFFB0303A), t);
+  final front = l.corners[3];
+  flag(cv, Iso.pt(front.$1, front.$2, front.$3 + 5 + 30 + l.tr * 10), 14, const Color(0xFF2F4F8A), t, phase: 1.5);
+  for (final (i, (cx, cy, hh)) in l.gateTowers.indexed) {
+    flag(cv, Iso.pt(cx, cy, hh + 5 + 30 + l.gr * 10), 10, const Color(0xFFE6C35A), t, phase: 2.2 + i);
+  }
 }
 
 // ---------------------------------------------------------------- mansão
@@ -934,6 +1040,7 @@ void _farmhouse(Canvas cv, Building b, double t) {
       zOffset: 9);
   door(cv, g, _doorTile(b), color: const Color(0xFF7A4B2E));
   // varanda com toldo
+  if (doorsHidden) return _roof(cv, b);
   final uc = _doorTile(b) + .5;
   final a = Iso.pt(g.x + uc - .55, g.y + g.d + .02, 21),
       c = Iso.pt(g.x + uc + .55, g.y + g.d + .02, 21);
@@ -942,6 +1049,179 @@ void _farmhouse(Canvas cv, Building b, double t) {
   fillPoly(cv, Iso.poly([a, c, c2, a2]), shade(b.roofColor, .05),
       line: shade(b.roofColor, -.3), lw: 1);
   _roof(cv, b);
+}
+
+// ---------------------------------------------------------------- casa de campo
+/// Casa de campo: reboco claro sobre base de pedra, enxaimel leve, postigos coloridos com
+/// floreiras, varanda de toldo sobre dois esteios com lampião, telhado de palha (Idade
+/// Média) ou de telha (épocas seguintes).
+void _countryHouse(Canvas cv, Building b, double t) {
+  final g = Geo(b);
+  final plaster = Color.lerp(b.wall, const Color(0xFFF2E6CC), .6)!;
+  final stone = Color.lerp(b.wall, const Color(0xFF8E887C), .7)!;
+  const timber = Color(0xFF5E4330), base = 7.0;
+  _walls(cv, g, plaster, texture: WallTexture.plain, bands: false);
+  // base de pedra baixa
+  fillPoly(cv, Iso.poly([g.left(0, 0), g.left(g.w, 0), g.left(g.w, base), g.left(0, base)]), stone,
+      line: _line(stone), lw: 1);
+  fillPoly(cv, Iso.poly([g.right(0, 0), g.right(g.d, 0), g.right(g.d, base), g.right(0, base)]),
+      shade(stone, -.1),
+      line: _line(stone), lw: 1);
+  // enxaimel leve: esteios nas divisas, travessa no alto e diagonais alternadas
+  final beam = outline(timber, 1.8);
+  for (var i = 0; i <= b.width; i++) {
+    cv.drawLine(g.left(i.toDouble(), base), g.left(i.toDouble(), g.h), beam);
+  }
+  for (var j = 1; j <= b.depth; j++) {
+    cv.drawLine(g.right(j.toDouble(), base), g.right(j.toDouble(), g.h), beam);
+  }
+  cv.drawLine(g.left(0, g.h - 4), g.left(g.w, g.h - 4), beam);
+  cv.drawLine(g.right(0, g.h - 4), g.right(g.d, g.h - 4), beam);
+  for (var i = 0; i < b.width; i += 2) {
+    cv.drawLine(g.left(i.toDouble(), base), g.left(i + 1.0, g.h - 4), outline(timber, 1.2));
+  }
+  for (var j = 0; j < b.depth; j += 2) {
+    cv.drawLine(g.right(j.toDouble(), base), g.right(j + 1.0, g.h - 4), outline(timber, 1.2));
+  }
+  windows(cv, g,
+      style: WindowStyle.shuttered,
+      skipDoorAt: _doorTile(b),
+      glass: const Color(0xFFF0CF7A),
+      rightGlass: const Color(0xFFDFB962),
+      shutter: const Color(0xFF5F8F6A),
+      zOffset: 13,
+      height: 8);
+  // floreiras sob as janelas, com flores
+  const blooms = [Color(0xFFE56B8A), Color(0xFFF3C94E), Color(0xFFF2F2F2)];
+  void box(Offset Function(double, double) f, double u, int k) {
+    const z = 11.0;
+    fillPoly(cv, Iso.poly([f(u - .14, z), f(u + .14, z), f(u + .14, z + 3), f(u - .14, z + 3)]),
+        const Color(0xFF7A5434),
+        line: timber, lw: .7);
+    for (var n = 0; n < 3; n++) {
+      cv.drawCircle(f(u - .09 + n * .09, z + 4.6), 1.4, Paint()..color = blooms[(k + n) % 3]);
+    }
+  }
+
+  for (var f = 0; f < b.floors; f++) {
+    for (var i = 0; i < b.width; i++) {
+      if (f == 0 && i == _doorTile(b)) continue;
+      box((u, z) => g.left(u, z + f * Iso.floorH), i + .5, i + f);
+    }
+    for (var j = 0; j < b.depth; j++) {
+      box((u, z) => g.right(u, z + f * Iso.floorH), j + .5, j + f + 1);
+    }
+  }
+  door(cv, g, _doorTile(b), color: const Color(0xFF7A4B2E), hgt: 17, halfW: .18);
+  // varanda: toldo inclinado sobre dois esteios e um lampião ao lado da porta
+  final uc = _doorTile(b) + .5;
+  if (!doorsHidden) {
+  final a = Iso.pt(g.x + uc - .55, g.y + g.d + .02, 22), c = Iso.pt(g.x + uc + .55, g.y + g.d + .02, 22);
+  final c2 = Iso.pt(g.x + uc + .55, g.y + g.d + .38, 16), a2 = Iso.pt(g.x + uc - .55, g.y + g.d + .38, 16);
+  final post = outline(timber, 2.2);
+  for (final s in [-.52, .52]) {
+    cv.drawLine(Iso.pt(g.x + uc + s, g.y + g.d + .36, 0), Iso.pt(g.x + uc + s, g.y + g.d + .36, 16), post);
+  }
+  fillPoly(cv, Iso.poly([a, c, c2, a2]), shade(b.roofColor, .05), line: shade(b.roofColor, -.3), lw: 1);
+  final lamp = g.left(uc + .3, 15);
+  cv.drawLine(lamp, lamp.translate(0, 3), outline(timber, 1));
+  cv.drawCircle(lamp.translate(0, 5), 1.8, Paint()..color = const Color(0xFFF6C65A));
+  }
+  // telhado: palha na Idade Média, telha depois; coberto de neve se for claro demais
+  final snowy = HSLColor.fromColor(b.roofColor).lightness > .85;
+  if (buildingEra == Era.medieval && !snowy) {
+    final straw = Color.lerp(b.roofColor, const Color(0xFFD8B96B), .82)!;
+    _roof(cv, b.copyWith(roofColor: straw), style: RoofStyle.thatch);
+  } else {
+    _roof(cv, b, style: snowy ? RoofStyle.slate : RoofStyle.tile);
+  }
+}
+
+// ---------------------------------------------------------------- estábulo
+/// Estábulo: tábuas escuras sobre base de pedra, uma baia por tile na frente com porta de duas
+/// folhas (a de cima aberta, às vezes com um cavalo olhando), janelinhas de feno do lado,
+/// telhado de duas águas com a portinhola do palheiro e uma cúpula com cata-vento.
+void _stable(Canvas cv, Building b, double t) {
+  final g = Geo(b);
+  final wall = Color.lerp(const Color(0xFF8C5E3C), b.wall, .2)!;
+  const timber = Color(0xFF4A3322), base = 5.0, stall = 20.0;
+  _walls(cv, g, wall, texture: WallTexture.planks, bands: false);
+  final stone = Color.lerp(b.wall, const Color(0xFF8E887C), .7)!;
+  fillPoly(cv, Iso.poly([g.left(0, 0), g.left(g.w, 0), g.left(g.w, base), g.left(0, base)]), stone,
+      line: _line(stone), lw: 1);
+  fillPoly(cv, Iso.poly([g.right(0, 0), g.right(g.d, 0), g.right(g.d, base), g.right(0, base)]),
+      shade(stone, -.1),
+      line: _line(stone), lw: 1);
+  final post = outline(timber, 2.2);
+  for (var u = 0; u <= b.width; u++) {
+    cv.drawLine(g.left(u.toDouble(), base), g.left(u.toDouble(), g.h), post);
+  }
+  for (var u = 0; u <= b.depth; u++) {
+    cv.drawLine(g.right(u.toDouble(), base), g.right(u.toDouble(), g.h), post);
+  }
+  // baias na frente (some quando a frente fica para trás)
+  const horses = [Color(0xFF6B4226), Color(0xFF3B2A20), Color(0xFFD9C3A0), Color(0xFF8A5A3C)];
+  for (var i = 0; i < b.width; i++) {
+    final u0 = i + .18, u1 = i + .82;
+    if (doorsHidden) {
+      fillPoly(cv, Iso.poly([g.left(u0 + .15, 14), g.left(u1 - .15, 14), g.left(u1 - .15, 19), g.left(u0 + .15, 19)]),
+          const Color(0xFF2E2A26), line: timber, lw: 1);
+      continue;
+    }
+    // folha de baixo, fechada, com X
+    final low = Iso.poly([g.left(u0, base), g.left(u1, base), g.left(u1, 12), g.left(u0, 12)]);
+    cv.drawPath(low, Paint()..color = shade(wall, .1));
+    cv.drawPath(low, outline(timber, 1.2));
+    cv.drawLine(g.left(u0, base), g.left(u1, 12), outline(timber, 1));
+    cv.drawLine(g.left(u1, base), g.left(u0, 12), outline(timber, 1));
+    // vão de cima aberto, escuro
+    final top = Iso.poly([g.left(u0, 12), g.left(u1, 12), g.left(u1, stall), g.left(u0, stall)]);
+    cv.drawPath(top, Paint()..color = const Color(0xFF2E2A26));
+    cv.drawPath(top, outline(timber, 1.2));
+    // cavalo olhando por cima da porta em algumas baias
+    if ((b.id + i) % 3 != 1) {
+      final col = horses[(b.id + i * 3) % horses.length];
+      final neck = g.left(i + .5, 12);
+      final head = Path()
+        ..moveTo(neck.dx - 3, neck.dy)
+        ..lineTo(neck.dx - 3.5, neck.dy - 6)
+        ..quadraticBezierTo(neck.dx - 4.5, neck.dy - 9, neck.dx - 1, neck.dy - 9.5)
+        ..lineTo(neck.dx + 4, neck.dy - 6)
+        ..lineTo(neck.dx + 4.5, neck.dy - 3.5)
+        ..lineTo(neck.dx + 1, neck.dy - 3)
+        ..lineTo(neck.dx + 2, neck.dy)
+        ..close();
+      cv.drawPath(head, Paint()..color = col);
+      cv.drawPath(head, outline(shade(col, -.45), .8));
+      cv.drawCircle(neck.translate(1.5, -6.5), .9, Paint()..color = const Color(0xFF111111));
+      // crina e orelha
+      cv.drawLine(neck.translate(-3.2, -2), neck.translate(-3.6, -8), outline(shade(col, -.5), 1.4));
+      cv.drawLine(neck.translate(-2.4, -9.2), neck.translate(-2.8, -11.5), outline(col, 1.4));
+    }
+  }
+  // janelinhas de feno na lateral
+  for (var j = 0; j < b.depth; j++) {
+    final v = j + .5;
+    fillPoly(cv, Iso.poly([g.right(v - .16, 13), g.right(v + .16, 13), g.right(v + .16, 18), g.right(v - .16, 18)]),
+        const Color(0xFFE2C46A),
+        line: timber, lw: 1);
+  }
+  _roof(cv, b);
+  // cúpula de ventilação com cata-vento no meio da cumeeira
+  final rise = Iso.roofRise(b);
+  final cx = g.x + g.w / 2, cy = g.y + g.d / 2, z = g.h + rise - 2;
+  drawBox(cv, cx - .17, cy - .17, .34, .34, z, z + 7, const Color(0xFFF1E6D0));
+  cv.drawLine(Iso.pt(cx, cy + .17, z + 1.5), Iso.pt(cx, cy + .17, z + 5.5), outline(timber, .8));
+  cone(cv, cx, cy, .26, z + 7, 7, shade(b.roofColor, -.1));
+  final pole = Iso.pt(cx, cy, z + 14);
+  cv.drawLine(pole, pole.translate(0, -8), outline(const Color(0xFF3A3A3A), 1));
+  final vane = Path()
+    ..moveTo(pole.dx - 5, pole.dy - 7)
+    ..lineTo(pole.dx + 5, pole.dy - 7)
+    ..lineTo(pole.dx + 3, pole.dy - 9.5)
+    ..lineTo(pole.dx - 1, pole.dy - 9.5)
+    ..close();
+  cv.drawPath(vane, Paint()..color = const Color(0xFF3A3A3A));
 }
 
 // ---------------------------------------------------------------- silo

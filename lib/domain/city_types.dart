@@ -141,6 +141,11 @@ enum PropType {
   /// Cerca de madeira e sebe viva: liga-se às vizinhas e às muralhas (pintada arrastando).
   fence,
   hedge,
+  /// Portões da cerca de madeira e da sebe: ligam-se às vizinhas e deixam a passagem aberta.
+  fenceGate,
+  hedgeGate,
+  /// Casinha de cachorro (com tigela e osso).
+  doghouse,
   /// Árvores de outra estação (Pondsmânia mistura as quatro lado a lado) e círculo de fadas.
   autumnTree,
   frostTree,
@@ -167,6 +172,14 @@ enum BuildingKind {
   lab,
   skyscraper,
   farmhouse,
+
+  /// Casa de campo: a casa dos sítios e fazendas (reboco claro, enxaimel leve, varanda e
+  /// floreiras), em vez da casa de vila.
+  countryHouse,
+
+  /// Estábulo: baias com portas de duas folhas (cavalos olhando por cima), palheiro e
+  /// cúpula com cata-vento.
+  stable,
   silo,
   saloon,
 
@@ -343,6 +356,16 @@ class BuildingKindSpec {
         roofs: [RoofType.flat]),
     BuildingKind.farmhouse: BuildingKindSpec(
         footprints: [(2, 2), (3, 2)], minFloors: 1, maxFloors: 2),
+    BuildingKind.stable: BuildingKindSpec(
+        footprints: [(3, 2), (4, 2), (3, 3)],
+        minFloors: 1,
+        maxFloors: 1,
+        roofs: [RoofType.gable]),
+    BuildingKind.countryHouse: BuildingKindSpec(
+        footprints: [(2, 2), (3, 2), (2, 3), (3, 3)],
+        minFloors: 1,
+        maxFloors: 2,
+        roofs: [RoofType.gable]),
     BuildingKind.saloon: BuildingKindSpec(
         footprints: [(3, 2), (2, 2), (3, 3)],
         minFloors: 2,

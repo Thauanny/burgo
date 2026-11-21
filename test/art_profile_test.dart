@@ -59,6 +59,7 @@ void main() {
       () {
     const farm = {
       BuildingKind.farmhouse,
+      BuildingKind.countryHouse, // casa de campo: o sítio medieval, vitoriano e faroeste
       BuildingKind.barn,
       BuildingKind.silo,
       BuildingKind.greenhouse, // casa de sítio da era cyber

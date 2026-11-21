@@ -47,6 +47,7 @@ extension _MapLayouts on _CityBuild {
     }
     _wallCastles();
     _populateLife();
+    _capLife();
     return city;
   }
 

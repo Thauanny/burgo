@@ -24,7 +24,8 @@ class City {
         dirt = TileGrid(size),
         walls = TileGrid(size),
         palisade = TileGrid(size),
-        lowWall = TileGrid(size);
+        lowWall = TileGrid(size),
+        gate = TileGrid(size);
 
   String name;
   final int seed;
@@ -58,6 +59,10 @@ class City {
   /// Tipo do muro em cada tile (subconjuntos de [walls]): paliçada de troncos e muro baixo
   /// de pedra. O resto é muralha de pedra com torres.
   final TileGrid palisade, lowWall;
+
+  /// Portões postos à mão: o tile fica aberto (não é [walls]) e leva uma rua por baixo. O tipo
+  /// do portão (pedra, madeira, muro baixo) vem de [palisade] e [lowWall] no mesmo tile.
+  final TileGrid gate;
 
   /// Tipo de assentamento (id) e composição usados na geração.
   String settlementId = '';
@@ -211,6 +216,7 @@ class City {
     if (n == 0) {
       for (final b in _buildings) {
         if (b.kind == BuildingKind.farmhouse ||
+            b.kind == BuildingKind.countryHouse ||
             b.kind == BuildingKind.barn ||
             b.kind == BuildingKind.silo) {
           continue;
@@ -241,7 +247,7 @@ class City {
       dirt.version;
 
   /// Muda quando muros mudam (desenhados junto com as construções).
-  int get wallsVersion => walls.version + road.version + palisade.version + lowWall.version;
+  int get wallsVersion => walls.version + road.version + palisade.version + lowWall.version + gate.version;
 
   List<Building> get buildings => List.unmodifiable(_buildings);
   List<Prop> get props => List.unmodifiable(_props);
@@ -286,7 +292,9 @@ class City {
       ..wallRoof = wallRoof
       ..kmPerTile = kmPerTile
       .._nextId = _nextId;
+    final same = dx == 0 && dy == 0 && copy.size == size;
     void move(TileGrid from, TileGrid to) {
+      if (same) return to.copyFrom(from); // cópia do histórico: em bloco
       for (var x = 0; x < size; x++) {
         for (var y = 0; y < size; y++) {
           if (from.at(x, y)) to.set(x + dx, y + dy, true);
@@ -302,8 +310,11 @@ class City {
     move(dirt, copy.dirt);
     move(palisade, copy.palisade);
     move(lowWall, copy.lowWall);
+    move(gate, copy.gate);
     for (final item in [..._buildings, ..._farms, ..._props]) {
-      copy.add(item.movedTo(item.x + dx, item.y + dy));
+      // os itens são imutáveis: sem deslocamento, a cópia usa os mesmos (menos memória, e as
+      // imagens de cache continuam valendo depois de desfazer)
+      copy.add(same ? item : item.movedTo(item.x + dx, item.y + dy));
     }
     for (final l in _labels) {
       copy.addLabel(l.copyWith(x: l.x + dx, y: l.y + dy));

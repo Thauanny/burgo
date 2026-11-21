@@ -140,6 +140,14 @@ class _CityExportScene implements SceneView {
   @override
   PlacementPreview? get preview => null;
   @override
+  MapItem? get rotatable => null;
+  @override
+  int? get hoveredHandle => null;
+  @override
+  bool get interacting => false;
+  @override
+  bool get lowDetail => false;
+  @override
   bool get animatePeople => e.animatePeople;
   @override
   bool get animateMonsters => e.animateMonsters;

@@ -16,7 +16,12 @@ class EraseTool extends Tool {
     }
     final city = host.city;
     host.beginEdit();
-    if (city.road.at(tile.x, tile.y)) {
+    if (city.gate.at(tile.x, tile.y)) {
+      // apagar um portão tira a passagem e a rua dele
+      city.gate.set(tile.x, tile.y, false);
+      city.road.set(tile.x, tile.y, false);
+      city.dirt.set(tile.x, tile.y, false);
+    } else if (city.road.at(tile.x, tile.y)) {
       city.road.set(tile.x, tile.y, false);
     } else {
       city.zoneBrush.set(tile.x, tile.y, false);

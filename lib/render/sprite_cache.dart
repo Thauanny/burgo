@@ -62,11 +62,13 @@ class SpriteCache {
       Offset? pos,
       double? face,
       bool idle = false}) {
-    if (_scale != scale || _mode != Iso.mode) {
+    if (_mode != Iso.mode) {
       clear();
-      _scale = scale;
       _mode = Iso.mode;
     }
+    // mudou a escala (depois de um zoom): os sprites antigos continuam valendo, desenhados
+    // esticados, e são refeitos na escala nova aos poucos (o orçamento de cada quadro)
+    _scale = scale;
     final box = spriteBoxOf(p.type)!;
     final live = PropContext(cv, p,
         zoneColor: zoneColor, time: time, anomaly: anomaly, people: people, pos: pos, face: face, idle: idle);
@@ -76,6 +78,20 @@ class SpriteCache {
     final key = Object.hash(p.type, p.race, variant, frame, contamination, zoneKey,
         identityHashCode(people), anomaly, live.face > 0, idle);
     var s = _sprites.remove(key);
+    _Sprite build() => _build(p.type, box, variant, frame,
+        race: p.race,
+        contamination: contamination,
+        zoneColor: zoneColor,
+        anomaly: anomaly,
+        people: people,
+        face: live.face,
+        idle: idle);
+    if (s != null && s.scale != _scale && _builtThisFrame < buildsPerFrame) {
+      _builtThisFrame++;
+      _pixels -= s.image.width * s.image.height;
+      s.image.dispose();
+      s = build();
+    }
     if (s == null) {
       if (_builtThisFrame >= buildsPerFrame) {
         // orçamento do quadro esgotado: desenha ao vivo desta vez, sem travar o quadro
@@ -88,14 +104,7 @@ class SpriteCache {
         return;
       }
       _builtThisFrame++;
-      s = _build(p.type, box, variant, frame,
-          race: p.race,
-          contamination: contamination,
-          zoneColor: zoneColor,
-          anomaly: anomaly,
-          people: people,
-          face: live.face,
-          idle: idle);
+      s = build();
     }
     _sprites[key] = s; // mais recente por último (LRU)
     // com caminho, a posição já vem pronta; sem caminho, o objeto passeia pelo seu tile
@@ -149,7 +158,7 @@ class SpriteCache {
       _pixels -= gone.image.width * gone.image.height;
       gone.image.dispose();
     }
-    return _Sprite(image);
+    return _Sprite(image, _scale);
   }
 
   void clear() {
@@ -162,8 +171,11 @@ class SpriteCache {
 }
 
 class _Sprite {
-  _Sprite(this.image);
+  _Sprite(this.image, this.scale);
   final Image image;
+
+  /// Escala em que foi feito (desenhado esticado até ser refeito na escala atual).
+  final double scale;
 }
 
 const _plants = {

@@ -64,6 +64,7 @@ Map<String, dynamic> cityToJson(City c) => {
         'walls': TileGridCodec.encode(c.walls),
         'palisade': TileGridCodec.encode(c.palisade),
         'lowWall': TileGridCodec.encode(c.lowWall),
+        'gate': TileGridCodec.encode(c.gate),
         'dirt': TileGridCodec.encode(c.dirt),
       },
       'buildings': [
@@ -81,6 +82,7 @@ Map<String, dynamic> cityToJson(City c) => {
             'roofColor': b.roofColor.toARGB32(),
             'chimney': b.chimney,
             'name': b.name,
+            if (b.turn != 0) 'turn': b.turn,
           },
       ],
       'farms': [
@@ -103,9 +105,14 @@ Map<String, dynamic> cityToJson(City c) => {
             'type': p.type.name,
             if (p.race != null) 'race': p.race!.name,
             if (p.roam != null) 'roam': p.roam,
+            if (p.turn != 0) 'turn': p.turn,
           },
       ],
     };
+
+/// Giro salvo (0 a 3). Projetos da versão anterior guardavam só `flip` (virado = leste).
+int _turnOf(Map<String, dynamic> j) =>
+    ((j['turn'] as num?)?.toInt() ?? (j['flip'] == true ? 3 : 0)) % 4;
 
 City cityFromJson(Map<String, dynamic> j) {
   final size = _i(j['size']);
@@ -141,6 +148,7 @@ City cityFromJson(Map<String, dynamic> j) {
   grid('walls', c.walls);
   grid('palisade', c.palisade);
   grid('lowWall', c.lowWall);
+  grid('gate', c.gate);
   grid('dirt', c.dirt);
   for (final b
       in (j['buildings'] as List? ?? const []).cast<Map<String, dynamic>>()) {
@@ -157,6 +165,7 @@ City cityFromJson(Map<String, dynamic> j) {
       roofColor: Color(_i(b['roofColor'])),
       chimney: b['chimney'] as bool? ?? false,
       name: b['name'] as String? ?? 'Casa',
+      turn: _turnOf(b),
     ));
   }
   for (final f
@@ -177,7 +186,8 @@ City cityFromJson(Map<String, dynamic> j) {
         y: _i(p['y']),
         type: _enum(PropType.values, p['type'], 'Objeto'),
         race: p['race'] == null ? null : _enum(PropType.values, p['race'], 'Raça'),
-        roam: (p['roam'] as num?)?.toInt()));
+        roam: (p['roam'] as num?)?.toInt(),
+        turn: _turnOf(p)));
   }
   c.kmPerTile =
       ((j['kmPerTile'] as num?)?.toDouble() ?? 1).clamp(.001, 1000).toDouble();

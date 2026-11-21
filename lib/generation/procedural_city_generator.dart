@@ -10,6 +10,7 @@ import '../systems/art_profile.dart';
 import '../systems/rpg_system.dart';
 import '../systems/settlement_type.dart';
 import 'city_generator.dart';
+import 'life_populator.dart';
 
 part 'map_layouts.dart';
 
@@ -171,8 +172,10 @@ class _CityBuild {
 
   static const _farmKindNames = {
     BuildingKind.farmhouse: ['Casa da fazenda', 'Sítio', 'Granja'],
+    BuildingKind.countryHouse: ['Casa de campo', 'Sítio', 'Granja', 'Chácara'],
     BuildingKind.silo: ['Silo'],
-    BuildingKind.barn: ['Celeiro', 'Estábulo'],
+    BuildingKind.barn: ['Celeiro', 'Paiol'],
+    BuildingKind.stable: ['Estábulo', 'Cocheira', 'Baias'],
     BuildingKind.cottage: ['Casa de camponês', 'Sítio', 'Granja'],
   };
 
@@ -209,12 +212,37 @@ class _CityBuild {
     _populateZone();
     _wallCastles();
     _populateLife();
+    _capLife();
     return city;
+  }
+
+  /// Aplica o teto de pessoas e monstros do lugar (ver [SettlementType.maxPeople]).
+  void _capLife() {
+    final life = LifePopulator(city, sys, st, r);
+    final people = st.maxPeople, monsters = st.maxMonsters;
+    if (people != null && LifePopulator.peopleIn(city) > people) life.setPeople(people);
+    if (monsters != null && LifePopulator.monstersIn(city) > monsters) life.setMonsters(monsters);
   }
 
   /// Castelo só existe como estrutura de reino: todo castelo que ficou solto (sem muralha em
   /// volta) ganha uma cidadela — anel de muralha a um bloco dele, com portão voltado para a
   /// rua mais próxima. Castelos que já estão dentro de muralhas ficam como estão.
+  /// O castelo está cercado por muralha (ou portão) a até 3 tiles, nos quatro lados?
+  bool _enclosed(Building c) {
+    bool hit(int x, int y) => city.walls.at(x, y) || city.gate.at(x, y);
+    bool side(int dx, int dy) {
+      final mx = c.x + c.width ~/ 2, my = c.y + c.depth ~/ 2;
+      for (var k = 1; k <= 3; k++) {
+        final x = dx > 0 ? c.x + c.width - 1 + k : (dx < 0 ? c.x - k : mx);
+        final y = dy > 0 ? c.y + c.depth - 1 + k : (dy < 0 ? c.y - k : my);
+        if (hit(x, y)) return true;
+      }
+      return false;
+    }
+
+    return side(1, 0) && side(-1, 0) && side(0, 1) && side(0, -1);
+  }
+
   void _wallCastles() {
     for (final c in city.buildings.where((b) => b.kind == BuildingKind.castle).toList()) {
       final x0 = c.x - 1, y0 = c.y - 1, x1 = c.x + c.width, y1 = c.y + c.depth;
@@ -227,6 +255,7 @@ class _CityBuild {
         }
       }
       if (walled * 2 >= ring) continue; // já tem muralha própria
+      if (_enclosed(c)) continue; // já está num recinto murado (Palácio Imperial)
       // portão: no meio do lado da frente (sul), ligado à rua mais próxima
       final gx = c.x + c.width ~/ 2, gy = y1;
       for (var x = x0; x <= x1; x++) {
@@ -1431,10 +1460,12 @@ class _CityBuild {
         continue; // a estátua da cidade oval já foi posta no centro
       }
       final spec = BuildingKindSpec.of(e.kind);
-      final (w0, d0) = spec.footprints.first;
-      // castelo precisa de um bloco de folga em volta para a muralha da cidadela
-      final pad = e.kind == BuildingKind.castle ? 1 : 0;
+      final (w0, d0) = e.size == null ? spec.footprints.first : (e.size!, e.size!);
+      // castelo precisa de folga em volta para a muralha: 1 bloco (cidadela) ou 2 no recinto
+      // próprio (muralha, jardim entre ela e o castelo)
+      final pad = e.kind == BuildingKind.castle ? (e.precinct ? 2 : 1) : 0;
       final w = w0 + pad * 2, d = d0 + pad * 2;
+      if (e.precinct && _oval && e.u != null && e.v != null && _placePrecinctAt(e, w0, d0, w, d)) continue;
       final cands = blocks
           .where((b) =>
               !identical(b, plaza) &&
@@ -1464,6 +1495,7 @@ class _CityBuild {
         y = b.y0;
       }
       _addBuilding(x + pad, y + pad, w0, d0, e.kind, names: [e.name]);
+      if (e.precinct) _buildPrecinct(x, y, w, d, e.name);
       _extraBlocks.add(b);
       if (e.pond) {
         // lago em volta (só dentro do quarteirão) e o resto do quarteirão livre
@@ -1479,6 +1511,133 @@ class _CityBuild {
       }
       _occupy(b.x0 - 1, b.y0 - 1, b.x1 - b.x0 + 3, b.y1 - b.y0 + 3);
     }
+  }
+
+  /// Reserva o terreno do recinto perto da posição pedida na elipse (no Palácio Imperial: logo
+  /// diante da estátua, ao sul da praça dela), cortando o mínimo de ruas, e o constrói. Os
+  /// quarteirões ainda estão vazios aqui; as casas vêm depois e respeitam o terreno.
+  bool _placePrecinctAt(ExtraBuilding e, int w0, int d0, int w, int d) {
+    final tx = _ex + e.u! * _ra, ty = _ey + e.v! * _rb;
+    (int, int)? best;
+    var bestScore = double.infinity;
+    final built = TileGrid(n);
+    for (final bd in city.buildings) {
+      for (var i = bd.x; i < bd.x + bd.width; i++) {
+        for (var j = bd.y; j < bd.y + bd.depth; j++) {
+          built.set(i, j, true);
+        }
+      }
+    }
+    for (var x = (tx - w / 2 - 14).round(); x <= (tx - w / 2 + 14).round(); x++) {
+      for (var y = (ty - d / 2 - 14).round(); y <= (ty - d / 2 + 14).round(); y++) {
+        var roads = 0, ok = true;
+        for (var i = x; i < x + w && ok; i++) {
+          for (var j = y; j < y + d && ok; j++) {
+            // postes e objetos soltos saem do caminho; construções, água, muros e praça, não
+            if (!city.inBounds(i, j) || city.water.at(i, j) || city.walls.at(i, j) || city.plaza.at(i, j) ||
+                built.at(i, j)) {
+              ok = false;
+            } else if (city.road.at(i, j)) {
+              roads++;
+            }
+          }
+        }
+        if (!ok) continue;
+        final dist = sqrt(pow(x + w / 2 - tx, 2) + pow(y + d / 2 - ty, 2));
+        final score = dist + roads * .5;
+        if (score < bestScore) {
+          bestScore = score;
+          best = (x, y);
+        }
+      }
+    }
+    if (best == null) return false;
+    final (x, y) = best;
+    for (final pr in city.props.where((pr) => pr.x >= x && pr.x < x + w && pr.y >= y && pr.y < y + d).toList()) {
+      city.remove(pr);
+    }
+    for (var i = x; i < x + w; i++) {
+      for (var j = y; j < y + d; j++) {
+        city.road.set(i, j, false);
+        city.dirt.set(i, j, false);
+      }
+    }
+    final pad = (w - w0) ~/ 2;
+    _addBuilding(x + pad, y + pad, w0, d0, e.kind, names: [e.name]);
+    _buildPrecinct(x, y, w, d, e.name);
+    _occupy(x - 1, y - 1, w + 2, d + 2);
+    return true;
+  }
+
+  /// Recinto murado de um castelo ([x], [y], [w] × [d], já com o castelo no meio): muralha no
+  /// contorno, portão virado para o centro da cidade com um caminho até a rua, jardim entre a
+  /// muralha e o castelo e dois guardas na entrada.
+  void _buildPrecinct(int x, int y, int w, int d, String name) {
+    final cx = (lox + hix) / 2, cy = (loy + hiy) / 2;
+    // lado do portão: o que olha para o centro (onde fica a estátua)
+    final sides = [
+      (x + w ~/ 2, y - 1 + 1, 0, -1), // norte
+      (x + w ~/ 2, y + d - 1, 0, 1), // sul
+      (x, y + d ~/ 2, -1, 0), // oeste
+      (x + w - 1, y + d ~/ 2, 1, 0), // leste
+    ];
+    sides.sort((a, b) {
+      double far((int, int, int, int) s) => pow(s.$1 + s.$3 * 4 - cx, 2) + pow(s.$2 + s.$4 * 4 - cy, 2).toDouble();
+      return far(a).compareTo(far(b));
+    });
+    final (gx, gy, ox, oy) = sides.first;
+    for (var i = x; i < x + w; i++) {
+      for (var j = y; j < y + d; j++) {
+        final edge = i == x || j == y || i == x + w - 1 || j == y + d - 1;
+        if (!edge || !city.inBounds(i, j) || city.water.at(i, j)) continue;
+        city.road.set(i, j, false);
+        city.plaza.set(i, j, false);
+        if (i == gx && j == gy) {
+          city.gate.set(i, j, true);
+          city.road.set(i, j, true);
+        } else {
+          city.walls.set(i, j, true);
+        }
+        occupied.set(i, j, true);
+      }
+    }
+    // caminho do portão até a rua (no máximo 5 tiles)
+    for (var k = 1; k <= 5; k++) {
+      final px = gx + ox * k, py = gy + oy * k;
+      if (!city.inBounds(px, py) || city.water.at(px, py)) break;
+      if (city.road.at(px, py) || city.plaza.at(px, py)) break;
+      if (city.buildings.any((b) => b.occupies(px, py))) break;
+      for (final p in city.props.where((p) => p.x == px && p.y == py).toList()) {
+        city.remove(p);
+      }
+      city.road.set(px, py, true);
+      occupied.set(px, py, true);
+    }
+    // jardim: árvores nos cantos, arbustos e estandartes ao longo do caminho do portão
+    final garden = <(int, int, PropType)>[
+      (x + 1, y + 1, PropType.tree),
+      (x + w - 2, y + 1, PropType.tree),
+      (x + 1, y + d - 2, PropType.tree),
+      (x + w - 2, y + d - 2, PropType.tree),
+      (gx - oy - ox, gy - ox - oy, PropType.banner),
+      (gx + oy - ox, gy + ox - oy, PropType.banner),
+    ];
+    for (final (px, py, t) in garden) {
+      if (city.inBounds(px, py) && !city.walls.at(px, py) && !city.road.at(px, py) &&
+          !city.buildings.any((b) => b.occupies(px, py)) && !city.props.any((p) => p.x == px && p.y == py) &&
+          EraRules.allowsProp(t, era)) {
+        _addProp(t, px, py);
+      }
+    }
+    // guardas parados dos dois lados do portão, do lado de fora
+    for (final s in const [-1, 1]) {
+      final px = gx + ox + (oy != 0 ? s : 0), py = gy + oy + (ox != 0 ? s : 0);
+      if (city.inBounds(px, py) && !city.walls.at(px, py) && !city.water.at(px, py) &&
+          !city.buildings.any((b) => b.occupies(px, py)) && !city.props.any((p) => p.x == px && p.y == py)) {
+        city.add(Prop(id: city.newId(), type: PropType.guard, x: px, y: py, roam: 0));
+      }
+    }
+    _label('$name (área restrita)', x + w / 2, y - 1);
   }
 
   void _fillTile(_Block block, int x, int y) {
@@ -1848,7 +2007,9 @@ class _CityBuild {
       wall: _pick(st.wallColors ?? sys.walls),
       roofColor: _pick(st.roofColors ?? sys.roofs),
       chimney:
-          (kind == BuildingKind.farmhouse || kind == BuildingKind.cottage) &&
+          (kind == BuildingKind.farmhouse ||
+                  kind == BuildingKind.countryHouse ||
+                  kind == BuildingKind.cottage) &&
               r.nextBool(),
       name: _pick(st.names[kind] ??
           sys.art.names[kind] ??

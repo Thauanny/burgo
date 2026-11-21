@@ -53,12 +53,16 @@ class RasterScaler {
   double _scale = 0;
   double get scale => _scale;
 
+  /// [settled] falso = zoom em andamento: mantém a resolução atual (as imagens só esticam) e
+  /// só troca quando a câmera parar, em vez de refazer tudo a cada degrau.
   double update(
       {required double zoom,
       required double devicePixelRatio,
-      required double sceneArea}) {
+      required double sceneArea,
+      bool settled = true}) {
     final budget = sqrt(_pixelBudget / max(1, sceneArea * 1.6));
     final cap = min(2.0, budget);
+    if (!settled && _scale != 0 && _scale <= cap) return _scale;
     final target = min(zoom * min(devicePixelRatio, 2), cap);
     var want = _steps.first;
     for (final s in _steps) {

@@ -25,8 +25,63 @@ class FloorsSection extends StatelessWidget {
               ? editor.cancelFloorCreation
               : editor.startFloorCreation,
           creating: editor.creatingFloor),
+      if (editor.lowerFloors.isNotEmpty && !editor.creatingFloor) ...[
+        const SizedBox(height: 10),
+        for (final f in editor.lowerFloors) _FloorRow(editor: editor, entranceId: f.entranceId, title: f.title),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text('A entrada no mapa é cuidada aqui: ela não se seleciona nem se apaga no mapa.',
+              style: Theme.of(context).textTheme.bodySmall),
+        ),
+      ],
       if (editor.creatingFloor) _CreateFloorForm(editor: editor),
     ]);
+  }
+}
+
+/// Um piso de baixo: descer até ele ou apagá-lo (a masmorra e a entrada no mapa).
+class _FloorRow extends StatelessWidget {
+  const _FloorRow({required this.editor, required this.entranceId, required this.title});
+  final EditorState editor;
+  final int entranceId;
+  final String title;
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Apagar o piso de baixo?'),
+        content: Text('A masmorra "$title" e a entrada dela no mapa serão apagadas. Dá para desfazer '
+            'a entrada com Ctrl+Z, mas a masmorra não volta.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text(Strings.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apagar')),
+        ],
+      ),
+    );
+    if (ok == true) editor.removeFloor(entranceId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        const Icon(Icons.stairs, size: 18),
+        const SizedBox(width: 6),
+        Expanded(child: Text(title, overflow: TextOverflow.ellipsis)),
+        IconButton(
+          tooltip: Strings.descend,
+          icon: const Icon(Icons.arrow_downward),
+          onPressed: () => editor.descend(entranceId),
+        ),
+        IconButton(
+          tooltip: Strings.deleteDungeon,
+          icon: const Icon(Icons.delete_outline, color: Vintage.terracotta),
+          onPressed: () => _confirmDelete(context),
+        ),
+      ]),
+    );
   }
 }
 
@@ -104,6 +159,15 @@ class _CreateFloorForm extends StatelessWidget {
                 selected: picking,
                 onSelected: (_) => editor.pickEntranceOnMap()),
           ]),
+          if (editor.draftEntranceId != null && free.any((p) => p.id == editor.draftEntranceId))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => editor.removeFreeEntrance(editor.draftEntranceId!),
+                icon: const Icon(Icons.delete_outline, size: 18, color: Vintage.terracotta),
+                label: const Text('Apagar esta entrada'),
+              ),
+            ),
           if (picking)
             Padding(
                 padding: const EdgeInsets.only(top: 6),

@@ -22,6 +22,7 @@ const Map<PropType, double> propHeights = {
   PropType.barrel: 20,
   PropType.hay: 24,
   PropType.cart: 26,
+  PropType.doghouse: 18,
 };
 
 Paint _f(Color c) => Paint()..color = c;
@@ -89,9 +90,9 @@ void _stall(PropContext c) {
   _planks(cv, cx + x0 + .04, cy - .1, x1 - x0 - .08, .36, 0, 13, wood, rows: 3);
   // tampo com saliência
   drawBox(cv, cx + x0 + .01, cy - .13, x1 - x0 - .02, .42, 13, 15, shade(wood, .1));
-  // mercadoria em cima do balcão
+  // mercadoria em cima do balcão (de costas, o balcão fica do outro lado: vê-se só o fundo)
   final goods = hs % 3;
-  for (var i = 0; i < 4; i++) {
+  for (var i = 0; i < (c.back ? 0 : 4); i++) {
     final gx = cx + x0 + .14 + i * .18, gy = cy + .02;
     final b = Iso.pt(gx, gy, 15);
     switch ((goods + i) % 3) {
@@ -118,8 +119,8 @@ void _stall(PropContext c) {
         cv.drawLine(b.translate(-3.4, -4), b.translate(3.4, -4), _l(const Color(0xFFE6C38A), .8));
     }
   }
-  // sacos no chão, ao lado
-  final sack = Iso.pt(cx + x1 - .08, cy + y1 - .02);
+  // sacos no chão, ao lado (do lado de trás quando a barraca está de costas)
+  final sack = Iso.pt(cx + x1 - .08, cy + (c.back ? y0 + .04 : y1 - .02));
   final sp = Path()
     ..moveTo(sack.dx - 5, sack.dy)
     ..quadraticBezierTo(sack.dx - 6, sack.dy - 8, sack.dx - 1, sack.dy - 10)
@@ -368,13 +369,14 @@ void _cart(PropContext c) {
   }
 
   wheel(by0 - .02); // roda de trás
-  // varais (para o cavalo), saindo da frente
+  // varais (para o cavalo), saindo da frente; de costas, a frente é o lado de lá
+  final front = c.back ? bx0 : bx1, out = c.back ? -.42 : .42;
   for (final dy in [by0 + .04, by1 - .04]) {
-    final a = Iso.pt(cx + bx1, cy + dy, z0 + 1), b = Iso.pt(cx + bx1 + .42, cy + dy, 3);
+    final a = Iso.pt(cx + front, cy + dy, z0 + 1), b = Iso.pt(cx + front + out, cy + dy, 3);
     cv.drawLine(a, b, _l(dark, 2.8));
     cv.drawLine(a, b, _l(wood, 1.7));
   }
-  cv.drawLine(Iso.pt(cx + bx1 + .38, cy + by0 + .04, 4), Iso.pt(cx + bx1 + .38, cy + by1 - .04, 4), _l(dark, 1.4));
+  cv.drawLine(Iso.pt(cx + front + out * .9, cy + by0 + .04, 4), Iso.pt(cx + front + out * .9, cy + by1 - .04, 4), _l(dark, 1.4));
   // caixa da carroça
   _planks(cv, cx + bx0, cy + by0, bx1 - bx0, by1 - by0, z0, z1, wood, rows: 1);
   // carga

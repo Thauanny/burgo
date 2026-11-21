@@ -28,14 +28,26 @@ abstract final class ProjectCodec {
   static String encodeProject(ProjectEditor e) =>
       const JsonEncoder.withIndent(' ').convert(envelope(e));
 
-  static String encodeWorkspace(List<ProjectEditor> tabs, int active) =>
+  static String encodeWorkspace(List<ProjectEditor> tabs, int active, {List<int> unsaved = const []}) =>
       jsonEncode({
         'app': 'burgo',
         'version': projectFormatVersion,
         'kind': 'workspace',
         'active': active,
+        if (unsaved.isNotEmpty) 'unsaved': unsaved,
         'tabs': [for (final t in tabs) envelope(t)],
       });
+
+  /// Abas do espaço de trabalho que tinham mudanças não salvas (índices).
+  static Set<int> unsavedTabs(String text) {
+    try {
+      final root = jsonDecode(text);
+      if (root is! Map<String, dynamic>) return const {};
+      return {for (final i in (root['unsaved'] as List? ?? const [])) (i as num).toInt()};
+    } on FormatException {
+      return const {};
+    }
+  }
 
   /// Lê um arquivo de projeto ou de espaço de trabalho. Devolve a lista de projetos e a aba ativa.
   static (List<DecodedProject>, int) decode(String text) {

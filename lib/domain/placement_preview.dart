@@ -22,11 +22,11 @@ final class ItemPreview extends PlacementPreview {
 }
 
 /// Fantasma de um trecho de muro no tile ([kind] 0 = muralha, 1 = paliçada, 2 = muro baixo),
-/// já ligado aos muros vizinhos.
+/// já ligado aos muros vizinhos. Com [gate], é o portão desse tipo de muro.
 final class WallPreview extends PlacementPreview {
-  const WallPreview(this.x, this.y, this.kind, {required this.isValid});
+  const WallPreview(this.x, this.y, this.kind, {required this.isValid, this.gate = false});
   final int x, y, kind;
-  final bool isValid;
+  final bool isValid, gate;
 }
 
 /// Círculo do raio de ação de uma área especial a ser colocada.

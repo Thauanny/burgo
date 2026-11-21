@@ -10,6 +10,7 @@ import '../motion.dart';
 import '../raster_image.dart';
 import '../scene_view.dart';
 import '../sprite_cache.dart';
+import 'building_kit.dart' show doorsHidden;
 import 'building_painters.dart'
     show buildingDynamicParts, chimneySmoke, hasChimneySmoke, paintAnimatedParts;
 import 'building_renderer.dart';
@@ -121,7 +122,10 @@ class EntitiesLayer {
   /// Muros, ruas e área especial na vista girada (a camada inteira desenha na orientação
   /// da câmera atual); por onde se anda; e quem cobre cada tile.
   TileGrid _wallsD = TileGrid(1), _roadD = TileGrid(1), _zoneD = TileGrid(1);
-  TileGrid _palD = TileGrid(1), _lowD = TileGrid(1), _fenceD = TileGrid(1);
+  TileGrid _palD = TileGrid(1), _lowD = TileGrid(1), _fenceD = TileGrid(1), _gateD = TileGrid(1);
+
+  /// Muros colados num castelo (a até 1 tile dele): o anel externo, sem torres nas quinas.
+  TileGrid _ringD = TileGrid(1);
 
   /// Andarilhos do último arranjo, por chave: quem não mudou continua do mesmo ponto do
   /// caminho (não pula ao editar o mapa).
@@ -130,7 +134,10 @@ class EntitiesLayer {
   /// Tempo da cena no último quadro (novos caminhos começam no tile do objeto agora).
   double _now = 0;
 
-  static const _fences = {PropType.fence, PropType.hedge};
+  static const _fences = {PropType.fence, PropType.hedge, PropType.fenceGate, PropType.hedgeGate};
+
+  /// Portões de cerca e de sebe: ligam-se às cercas, mas deixam a passagem livre.
+  static const _gateProps = {PropType.fenceGate, PropType.hedgeGate};
   Walkways _ways = Walkways(1);
   final Map<int, List<_Entry>> _occluders = {};
   int _zoneVersion = -1;
@@ -138,6 +145,14 @@ class EntitiesLayer {
   int _size = 1;
   List<_Band> _bands = const [];
   List<_Mover> _movers = const [];
+
+  /// Ponto (na cena, no chão) onde o ser vivo [id] está agora; nulo se ele não anda.
+  Offset? moverAnchorOf(int id) {
+    for (final m in _movers) {
+      if (m.prop.id == id) return m.anchor;
+    }
+    return null;
+  }
 
   void paint(Canvas cv, SceneView scene, double scale) {
     // a igreja muda de cara com a época do lugar
@@ -164,6 +179,8 @@ class EntitiesLayer {
     _palD = TileGrid(size);
     _lowD = TileGrid(size);
     _fenceD = TileGrid(size);
+    _gateD = TileGrid(size);
+    _ringD = TileGrid(size);
     _ways = Walkways(size);
     final blocked = TileGrid(size);
     for (var x = 0; x < city.tilesX; x++) {
@@ -172,6 +189,13 @@ class EntitiesLayer {
         if (city.walls.at(x, y)) {
           _wallsD.set(dx, dy, true);
           blocked.set(dx, dy, true);
+          if (city.palisade.at(x, y)) _palD.set(dx, dy, true);
+          if (city.lowWall.at(x, y)) _lowD.set(dx, dy, true);
+        }
+        if (city.gate.at(x, y)) {
+          // portão posto à mão: aberto, com rua por baixo; o tipo vem das grades do muro
+          _gateD.set(dx, dy, true);
+          _roadD.set(dx, dy, true);
           if (city.palisade.at(x, y)) _palD.set(dx, dy, true);
           if (city.lowWall.at(x, y)) _lowD.set(dx, dy, true);
         }
@@ -189,6 +213,13 @@ class EntitiesLayer {
               blocked.set(x, y, true);
             }
           }
+          if (b.kind == BuildingKind.castle) {
+            for (var x = b.x - 1; x <= b.x + b.width; x++) {
+              for (var y = b.y - 1; y <= b.y + b.depth; y++) {
+                _ringD.set(x, y, true);
+              }
+            }
+          }
         case final Farm f:
           for (var x = f.x; x < f.x + f.width; x++) {
             for (var y = f.y; y < f.y + f.depth; y++) {
@@ -196,7 +227,7 @@ class EntitiesLayer {
             }
           }
         case final Prop p:
-          if (!walks(p.type)) blocked.set(p.x, p.y, true);
+          if (!walks(p.type) && !_gateProps.contains(p.type)) blocked.set(p.x, p.y, true);
           if (_fences.contains(p.type)) _fenceD.set(p.x, p.y, true);
       }
     }
@@ -226,8 +257,13 @@ class EntitiesLayer {
       _partition(city, scene, items, maxDepth);
     }
     Iso.rot = 0;
-    final rescale = _scale != scale;
     _curScale = scale;
+    // só com o mapa muito afastado (bonecos de poucos pixels) pula os recortes finos: a casa da
+    // frente redesenhada por cima de quem anda atrás dela e o recorte dos objetos animados
+    final light = scene.lowDetail;
+    // imagens das faixas numa resolução antiga são refeitas aos poucos (poucas por quadro), e
+    // só depois que a câmera para; faixa nova (sem imagem) é feita na hora
+    var rebuilds = scene.interacting ? 0 : 3;
     sprites.beginFrame();
     final view = scene.visibleScene.inflate(120);
     // seres vivos: posição de agora e faixa de profundidade de agora
@@ -248,18 +284,21 @@ class EntitiesLayer {
     }
     for (var i = 0; i < _bands.length; i++) {
       final band = _bands[i];
-      if (rescale || structureChanged) {
-        band.rebuildIfNeeded(this, city, scene, scale, force: rescale);
+      if (band.raster.isEmpty && band.built != scale) {
+        band.rebuild(this, city, scene, scale);
+      } else if (band.built != scale && rebuilds > 0) {
+        band.rebuild(this, city, scene, scale);
+        rebuilds--;
       }
       band.raster.paint(cv);
       for (final e in band.animated) {
         if (e.hidden || !view.contains(e.anchor)) continue;
-        _withClip(cv, e.clip, () => _paintEntry(cv, e, scene));
+        _withClip(cv, light ? null : e.clip, () => _paintEntry(cv, e, scene));
       }
       final movers = moving[i]..sort((a, b) => a.depth.compareTo(b.depth));
       for (final m in movers) {
         _paintMover(cv, m, scene);
-        _redrawFront(cv, m, i, city, scene);
+        if (!light) _redrawFront(cv, m, i, city, scene);
       }
     }
     _scale = scale;
@@ -304,10 +343,10 @@ class EntitiesLayer {
     }
     for (var x = 0; x < city.size; x++) {
       for (var y = 0; y < city.size; y++) {
-        if (_wallsD.at(x, y) || WallRenderer.isGate(_wallsD, _roadD, x, y)) {
+        if (_wallsD.at(x, y) || WallRenderer.isGateTile(_wallsD, _roadD, _gateD, x, y)) {
           // o desenho do muro depende dos vizinhos e do tipo: entram na assinatura da faixa
           final kind = _palD.at(x, y) ? 1 : (_lowD.at(x, y) ? 2 : 0);
-          entries.add(_Entry.wall(x, y, extra: _wallMask(x, y) * 4 + kind));
+          entries.add(_Entry.wall(x, y, extra: _wallMask(x, y) * 8 + kind + (_gateD.at(x, y) ? 4 : 0)));
         }
       }
     }
@@ -580,8 +619,10 @@ class EntitiesLayer {
   void _paintEntry(Canvas cv, _Entry e, SceneView scene) {
     final item = e.item;
     if (e.overlayOf != null) {
-      buildingDynamicParts[e.overlayOf!.kind]?.call(cv, e.overlayOf!, scene.time);
-      if (hasChimneySmoke(e.overlayOf!)) chimneySmoke(cv, e.overlayOf!, scene.time);
+      _withFlip(cv, e.overlayOf!, (b) {
+        buildingDynamicParts[b.kind]?.call(cv, b, scene.time);
+        if (hasChimneySmoke(b)) chimneySmoke(cv, b, scene.time);
+      });
     } else if (item != null) {
       paintItem(cv, item, scene);
     }
@@ -603,6 +644,17 @@ class EntitiesLayer {
   void _paintStatic(Canvas cv, _Entry e, City city, SceneView scene) {
     if (e.wall != null) {
       final (wx, wy) = e.wall!;
+      if (_gateD.at(wx, wy)) {
+        // portão posto à mão, no estilo do muro escolhido
+        if (_palD.at(wx, wy)) {
+          walls.paintPalisadeGate(cv, _wallsD, wx, wy);
+        } else if (_lowD.at(wx, wy)) {
+          walls.paintLowGate(cv, _wallsD, wx, wy, stone: city.wallStone ?? WallRenderer.defaultStone);
+        } else {
+          walls.paintGate(cv, _wallsD, wx, wy, stone: city.wallStone ?? WallRenderer.defaultStone);
+        }
+        return;
+      }
       if (_palD.at(wx, wy)) {
         walls.paintPalisade(cv, _wallsD, wx, wy);
         return;
@@ -617,6 +669,7 @@ class EntitiesLayer {
       } else {
         walls.paintTile(cv, _wallsD, e.wall!.$1, e.wall!.$2,
             sparseTowers: city.ovalWall,
+            plainCorners: _ringD.at(e.wall!.$1, e.wall!.$2),
             stone: city.wallStone ?? WallRenderer.defaultStone,
             roof: city.wallRoof ?? WallRenderer.defaultRoof);
       }
@@ -640,13 +693,24 @@ class EntitiesLayer {
 
   /// Fantasma de um trecho de muro no tile ([x], [y]) do mapa ([kind] 0 muralha, 1 paliçada,
   /// 2 muro baixo), ligado aos muros que já existem em volta.
-  void paintWallGhost(Canvas cv, int x, int y, int kind, SceneView scene) {
+  void paintWallGhost(Canvas cv, int x, int y, int kind, SceneView scene, {bool gate = false}) {
     final (dx, dy) = Iso.displayTile(x, y);
     final grid = TileGrid(_wallsD.size)
       ..addAll(_wallsD)
-      ..set(dx, dy, true);
+      ..set(dx, dy, !gate);
     final stone = scene.city.wallStone ?? WallRenderer.defaultStone;
     Iso.raw(() {
+      if (gate) {
+        switch (kind) {
+          case 1:
+            walls.paintPalisadeGate(cv, grid, dx, dy);
+          case 2:
+            walls.paintLowGate(cv, grid, dx, dy, stone: stone);
+          default:
+            walls.paintGate(cv, grid, dx, dy, stone: stone);
+        }
+        return;
+      }
       switch (kind) {
         case 1:
           walls.paintPalisade(cv, grid, dx, dy);
@@ -665,14 +729,41 @@ class EntitiesLayer {
     Iso.raw(() => paintItem(cv, shown, scene));
   }
 
+  /// Desenha a construção virada ([Building.flip]): o desenho é o mesmo, espelhado em volta do
+  /// centro da base. A base ocupa `largura × profundidade` tiles; espelhada, a base do
+  /// desenho original é a transposta dela (na vista de cima o espelho não troca os lados).
+  void _withFlip(Canvas cv, Building b, void Function(Building design) draw) {
+    // frente virada para trás (norte/oeste): a porta não aparece nesta vista
+    doorsHidden = b.back;
+    try {
+      if (!b.flip) {
+        draw(b.turn == 0 ? b : b.copyWith(turn: 0));
+        return;
+      }
+      final design = Iso.isTopDown
+          ? b.copyWith(turn: 0)
+          : b.copyWith(width: b.depth, depth: b.width, turn: 0);
+      final xt = Iso.pt(b.x + b.width / 2, b.y + b.depth / 2).dx;
+      final xn = Iso.pt(b.x + design.width / 2, b.y + design.depth / 2).dx;
+      cv.save();
+      cv.translate(xt, 0);
+      cv.scale(-1, 1);
+      cv.translate(-xn, 0);
+      draw(design);
+      cv.restore();
+    } finally {
+      doorsHidden = false;
+    }
+  }
+
   void paintItem(Canvas cv, MapItem item, SceneView scene) {
     switch (item) {
       case final Building b:
-        buildings.paint(cv, b, scene.time);
+        _withFlip(cv, b, (design) => buildings.paint(cv, design, scene.time));
       case final Farm f:
         farms.paint(cv, f);
       case final Prop p:
-        props.paint(cv, p,
+        void draw() => props.paint(cv, p,
             zoneColor: scene.system.zoneColor,
             time: scene.time,
             anomaly: scene.system.art.anomaly,
@@ -681,6 +772,17 @@ class EntitiesLayer {
             people: scene.system.art.people,
             scale: _curScale,
             link: _fences.contains(p.type) ? (dx, dy) => _linked(p.x + dx, p.y + dy) : null);
+        if (p.flip) {
+          final x = Iso.pt(p.x + .5, p.y + .5).dx;
+          cv.save();
+          cv.translate(x, 0);
+          cv.scale(-1, 1);
+          cv.translate(-x, 0);
+          draw();
+          cv.restore();
+        } else {
+          draw();
+        }
     }
   }
 }
@@ -723,10 +825,8 @@ class _Band {
 
   late final int signature = Object.hashAll(statics.map((e) => e.signatureKey));
 
-  void rebuildIfNeeded(
-      EntitiesLayer layer, City city, SceneView scene, double scale,
-      {required bool force}) {
-    if (!force && built == scale && !raster.isEmpty) return;
+  /// Refaz a imagem da faixa na resolução [scale].
+  void rebuild(EntitiesLayer layer, City city, SceneView scene, double scale) {
     if (statics.isEmpty) {
       raster.dispose();
       built = scale;

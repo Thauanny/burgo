@@ -141,14 +141,87 @@ class WallTool extends PaintTool {
 
   @override
   void afterPaintWith(ToolHost host, int x, int y) {
-    host.city.palisade.set(x, y, host.wallKind == WallKind.palisade);
-    host.city.lowWall.set(x, y, host.wallKind == WallKind.low);
+    final city = host.city;
+    if (city.gate.at(x, y)) _removeGate(city, x, y); // o trecho de muro fecha o portão
+    city.palisade.set(x, y, host.wallKind == WallKind.palisade);
+    city.lowWall.set(x, y, host.wallKind == WallKind.low);
   }
 
   @override
   void afterErase(City city, int x, int y) {
     city.palisade.set(x, y, false);
     city.lowWall.set(x, y, false);
+    city.gate.set(x, y, false);
+  }
+
+  // ---- portões
+  static const _fenceTypes = {PropType.fence, PropType.hedge, PropType.fenceGate, PropType.hedgeGate};
+
+  static PropType? _gatePropOf(ToolHost host) => switch (host.wallKind) {
+        WallKind.fence => PropType.fenceGate,
+        WallKind.hedge => PropType.hedgeGate,
+        _ => null,
+      };
+
+  static int _kindIndex(WallKind k) => switch (k) { WallKind.palisade => 1, WallKind.low => 2, _ => 0 };
+
+  /// Tira o portão do tile e a rua que ele levava por baixo.
+  static void _removeGate(City city, int x, int y) {
+    city.gate.set(x, y, false);
+    city.road.set(x, y, false);
+    city.dirt.set(x, y, false);
+  }
+
+  List<Prop> _propsAt(ToolHost host, int x, int y) =>
+      [for (final p in host.city.props) if (p.x == x && p.y == y) p];
+
+  /// Dá para pôr (ou tirar) um portão aqui? Cerca e sebe do próprio tile podem ser trocadas.
+  bool _gateFits(ToolHost host, Point<int> t) {
+    final city = host.city;
+    if (!city.inBounds(t.x, t.y) || city.water.at(t.x, t.y)) return false;
+    final gp = _gatePropOf(host);
+    if (gp == null) return !host.rules.isOccupied(t.x, t.y);
+    if (city.walls.at(t.x, t.y)) return false;
+    final here = _propsAt(host, t.x, t.y);
+    if (here.any((p) => !_fenceTypes.contains(p.type))) return false;
+    return !city.buildings.any((b) => b.occupies(t.x, t.y)) && !city.farms.any((f) => f.occupies(t.x, t.y));
+  }
+
+  bool _hasGate(ToolHost host, Point<int> t) {
+    final gp = _gatePropOf(host);
+    if (gp == null) return host.city.gate.at(t.x, t.y);
+    return _propsAt(host, t.x, t.y).any((p) => p.type == gp);
+  }
+
+  /// Põe o portão do tipo escolhido no tile; tocando num portão, ele fecha de novo
+  /// (vira muro, cerca ou sebe comum).
+  void _toggleGate(ToolHost host, Point<int> tile) {
+    final city = host.city;
+    final x = tile.x, y = tile.y;
+    final had = _hasGate(host, tile);
+    if (!had && !_gateFits(host, tile)) return;
+    host.beginEdit();
+    final gp = _gatePropOf(host);
+    if (gp != null) {
+      for (final p in _propsAt(host, x, y).where((p) => _fenceTypes.contains(p.type))) {
+        city.remove(p);
+      }
+      final plain = host.wallKind == WallKind.hedge ? PropType.hedge : PropType.fence;
+      final put = had ? plain : gp;
+      if (host.rules.canPlaceProp(x, y, put)) city.add(Prop(id: city.newId(), type: put, x: x, y: y));
+    } else if (had) {
+      _removeGate(city, x, y);
+      city.walls.set(x, y, true); // o portão fecha: volta a ser um trecho do mesmo muro
+    } else {
+      city.walls.set(x, y, false);
+      city.plaza.set(x, y, false);
+      city.gate.set(x, y, true);
+      city.road.set(x, y, true); // a passagem tem rua (de terra nos muros de madeira e de campo)
+      city.dirt.set(x, y, host.wallKind != WallKind.stone);
+      city.palisade.set(x, y, host.wallKind == WallKind.palisade);
+      city.lowWall.set(x, y, host.wallKind == WallKind.low);
+    }
+    host.changed();
   }
 
   // ---- cercas
@@ -186,6 +259,10 @@ class WallTool extends PaintTool {
 
   @override
   void onTap(ToolHost host, Offset scene, Point<int> tile) {
+    if (host.wallGate) {
+      _toggleGate(host, tile);
+      return;
+    }
     final t = _fenceOf(host);
     t == null ? super.onTap(host, scene, tile) : _fenceBegin(host, tile, t);
   }
@@ -194,6 +271,13 @@ class WallTool extends PaintTool {
   /// um trecho que já existe, marca para apagar.
   @override
   PlacementPreview? previewAt(ToolHost host, Point<int> tile) {
+    if (host.wallGate) {
+      if (_hasGate(host, tile)) return TilePreview(tile.x, tile.y, TilePreviewKind.erase);
+      final ok = _gateFits(host, tile);
+      final gp = _gatePropOf(host);
+      if (gp != null) return ItemPreview(Prop(id: -1, type: gp, x: tile.x, y: tile.y), isValid: ok);
+      return WallPreview(tile.x, tile.y, _kindIndex(host.wallKind), isValid: ok, gate: true);
+    }
     final t = _fenceOf(host);
     if (t != null) {
       if (_fenceAt(host, tile.x, tile.y, t) != null) return TilePreview(tile.x, tile.y, TilePreviewKind.erase);
@@ -208,6 +292,7 @@ class WallTool extends PaintTool {
 
   @override
   bool onDragStart(ToolHost host, Offset scene, Point<int> tile) {
+    if (host.wallGate) return false; // portão é um por clique; arrastar move o mapa
     final t = _fenceOf(host);
     if (t == null) return super.onDragStart(host, scene, tile);
     _fenceBegin(host, tile, t);

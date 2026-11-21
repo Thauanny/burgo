@@ -2,14 +2,17 @@ import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import '../editor/editor_state.dart';
 import '../geometry/iso.dart';
 import '../render/city_painter.dart';
 import '../render/layers/entities_layer.dart';
 import '../render/layers/ground_layer.dart';
 import '../render/layers/paper_layer.dart';
+import '../render/raster_image.dart';
 import 'map_controls.dart';
 import 'map_expand_arrows.dart';
+import 'map_loading_overlay.dart';
 
 enum _DragMode { pan, tool }
 
@@ -30,6 +33,7 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
   final _ground = GroundLayer();
   final _entities = EntitiesLayer();
   final _paper = PaperLayer();
+  final _scaler = RasterScaler();
   late final Ticker _ticker;
 
   /// Transição suave ao girar: a vista nova começa na posição da antiga e gira até o lugar.
@@ -87,20 +91,39 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
     final viewport = editor.viewport;
     return LayoutBuilder(builder: (context, bc) {
       editor.activateProjection();
+      editor.moverAnchor = _entities.moverAnchorOf;
       viewport.fit(editor.city.tilesX, Size(bc.maxWidth, bc.maxHeight),
           tilesY: editor.city.tilesY);
       final size = Size(bc.maxWidth, bc.maxHeight);
       final map = Listener(
         onPointerSignal: (e) {
           if (e is PointerScrollEvent) {
-            viewport.zoomAround(e.localPosition,
-                viewport.zoom * (1 - e.scrollDelta.dy / _scrollZoomDivisor));
+            // Shift + roda (ou rolagem lateral do trackpad) anda para os lados; a roda dá zoom
+            final d = e.scrollDelta;
+            if (HardwareKeyboard.instance.isShiftPressed || d.dx.abs() > d.dy.abs()) {
+              final amount = d.dx != 0 ? d.dx : d.dy;
+              viewport.moveTo(viewport.pan.translate(-amount, 0), viewport.zoom);
+            } else {
+              viewport.zoomAround(e.localPosition, viewport.zoom * (1 - d.dy / _scrollZoomDivisor));
+            }
           }
         },
-        child: MouseRegion(
-          onHover: (e) =>
-              viewport.setHover(Iso.tileAt(viewport.toScene(e.localPosition))),
-          onExit: (_) => viewport.setHover(null),
+        child: ValueListenableBuilder<int?>(
+          valueListenable: editor.handleHover,
+          builder: (context, handle, child) => MouseRegion(
+            // sobre uma seta de girar, o cursor vira a mãozinha de clicar
+            cursor: handle != null ? SystemMouseCursors.click : MouseCursor.defer,
+            onHover: (e) {
+              final scene = viewport.toScene(e.localPosition);
+              editor.hoverAt(scene);
+              viewport.setHover(Iso.tileAt(scene));
+            },
+            onExit: (_) {
+              editor.hoverAt(null);
+              viewport.setHover(null);
+            },
+            child: child,
+          ),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapUp: (d) => editor.tapAt(viewport.toScene(d.localPosition)),
@@ -146,8 +169,9 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
                     ground: _ground,
                     entities: _entities,
                     paper: _paper,
+                    scaler: _scaler,
                     repaint: Listenable.merge(
-                        [editor, editor.sceneTick, viewport, editor.clock]),
+                        [editor, editor.sceneTick, viewport, editor.clock, editor.handleHover]),
                   ),
                   size: Size.infinite,
                 ),
@@ -164,6 +188,7 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
           left: 14,
           bottom: 72, // logo acima da barra de km
           child: MapControls(
+            onPan: (d) => viewport.moveTo(viewport.pan + d, viewport.zoom),
             onRotateLeft: () => editor.rotate(-1),
             onRotateRight: () => editor.rotate(1),
             onIn: () => viewport.zoomAround(
@@ -176,6 +201,16 @@ class _CityCanvasState extends State<CityCanvas> with TickerProviderStateMixin {
                   tilesY: editor.city.tilesY);
               viewport.moveTo(viewport.pan, viewport.zoom);
             },
+          ),
+        ),
+        // cidade nova: "preparando o mapa" até os quadros ficarem estáveis
+        Positioned.fill(
+          child: ListenableBuilder(
+            listenable: editor,
+            builder: (context, _) => MapLoadingOverlay(
+              warmKey: (identityHashCode(editor), editor.freshCity),
+              title: editor.title,
+            ),
           ),
         ),
       ]);
